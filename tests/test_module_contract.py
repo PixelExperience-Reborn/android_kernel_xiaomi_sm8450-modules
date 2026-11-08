@@ -31,6 +31,19 @@ class ModuleContractTests(unittest.TestCase):
         self.assertEqual(set(oem["duplicates"]), {"gh_virt_wdt.ko", "qcom_wdt_core.ko"})
         self.assertRegex(oem["blob_sha"], r"^[0-9a-f]{40}$")
 
+    def test_trial_source_matches_pinned_kernel_and_preserves_unverified_kmi(self):
+        t = self.cfg["trial_lf_source"]
+        self.assertEqual(t["repository"], "LF52406/android_kernel_xiaomi_sm8450-modules")
+        self.assertEqual(t["commit_sha"], "91cdb1347970ae98291986926eb16bf1b172138e")
+        self.assertEqual(t["root_tree_sha"], "3a09118a08342f6b0118373f340d759ddfadb133")
+        self.assertEqual(t["expected_kernel_commit"], "283772ceb84491fd446e340fd211d45fb9dd9a36")
+        self.assertEqual(t["audio_kbuild_blob_sha"], "81667bef6787a567063a8b21b78379f794f9bc29")
+        self.assertEqual(t["required_product_define"], "CONFIG_TARGET_PRODUCT_MONDRIAN")
+        self.assertEqual(t["status"], "trial_source_only_not_copied_or_compiled")
+        for flag in ("abi_module_symvers_verified", "vendor_boot_modules_load_verified",
+                     "vendor_dlkm_modules_load_verified"):
+            self.assertFalse(t[flag])
+
     def test_no_unsafe_kernel_or_partition_assumptions(self):
         q = self.cfg["required_qualification"]
         for key in ("kernel_source_commit", "kernel_config_hash", "toolchain_revision", "kmi_symbol_list_hash", "module_symvers_hash", "compiled_modules_hash"):
