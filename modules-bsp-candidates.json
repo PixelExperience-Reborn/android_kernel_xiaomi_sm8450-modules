@@ -43,5 +43,20 @@
     "FM radio",
     "unverified vendor modules",
     "test keys"
-  ]
+  ],
+  "trial_lf_source": {
+    "repository": "LF52406/android_kernel_xiaomi_sm8450-modules",
+    "commit_sha": "91cdb1347970ae98291986926eb16bf1b172138e",
+    "root_tree_sha": "3a09118a08342f6b0118373f340d759ddfadb133",
+    "reference_branch": "lineage-24.0",
+    "status": "trial_source_only_not_copied_or_compiled",
+    "expected_kernel_repository": "LF52406/android_kernel_xiaomi_sm8450",
+    "expected_kernel_commit": "283772ceb84491fd446e340fd211d45fb9dd9a36",
+    "audio_kbuild_path": "qcom/opensource/audio-kernel/asoc/Kbuild",
+    "audio_kbuild_blob_sha": "81667bef6787a567063a8b21b78379f794f9bc29",
+    "required_product_define": "CONFIG_TARGET_PRODUCT_MONDRIAN",
+    "abi_module_symvers_verified": false,
+    "vendor_boot_modules_load_verified": false,
+    "vendor_dlkm_modules_load_verified": false
+  }
 }
