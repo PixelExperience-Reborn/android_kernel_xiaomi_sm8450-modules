@@ -44,6 +44,18 @@ class ModuleContractTests(unittest.TestCase):
                      "vendor_dlkm_modules_load_verified"):
             self.assertFalse(t[flag])
 
+    def test_modern_qualcomm_module_toolchain_must_match_our_kernel(self):
+        c = self.cfg["trial_lf_source"]["diagnostic_android_kernel_compiler"]
+        self.assertEqual(c["revision"], "clang-r614150")
+        self.assertEqual(c["llvm_major"], 23)
+        self.assertEqual(c["upstream_commit_sha"],
+                         "c9ed23e2ba198658b630d4b10e09fa980cd43119")
+        self.assertTrue(c["must_match_kernel_image_compiler"])
+        self.assertFalse(c["allow_compiler_warning_suppression"])
+        self.assertFalse(c["compiled_module_symvers_qualified"])
+        self.assertFalse(c["kmi_qualified"])
+        self.assertFalse(c["vendor_dlkm_packaged"])
+
     def test_no_unsafe_kernel_or_partition_assumptions(self):
         q = self.cfg["required_qualification"]
         for key in ("kernel_source_commit", "kernel_config_hash", "toolchain_revision", "kmi_symbol_list_hash", "module_symvers_hash", "compiled_modules_hash"):
