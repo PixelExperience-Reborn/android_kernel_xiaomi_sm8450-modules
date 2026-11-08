@@ -1,0 +1,12 @@
+name: Mondrian Qualcomm module BSP contracts (source only)
+on:
+  push:
+    branches: [seventeen, 'audit/**']
+  pull_request:
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check isolated source and KMI selection gates
+        run: python3 -m unittest discover -s tests -v
