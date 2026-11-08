@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "project": "PixelExperience-Reborn",
+  "android_base": "AOSP 17",
+  "device": "mondrian",
+  "soc": "SM8475",
+  "build_status": "not_buildable",
+  "reference_module_source": {
+    "repository": "LineageOS/android_kernel_xiaomi_sm8450-modules",
+    "ref": "lineage-24.0",
+    "commit_sha": "3b30ba7df6608c97c0ba2d55d679a6b5987c4c66",
+    "tree_sha": "decc79698113e01aaed861f169ab1f8929433bc2",
+    "status": "read_only_not_selected"
+  },
+  "reference_oem_list": {
+    "repository": "MiCode/Xiaomi_Kernel_OpenSource",
+    "ref": "mondrian-s-oss",
+    "commit_sha": "989b27aa8391a2ede9b067b53877c4c3343955fe",
+    "path": "modules.list.msm.mondrian",
+    "blob_sha": "1ee612bfd4090af12f88629a66b069eec9192825",
+    "ordered_entries": 106,
+    "unique_entries": 104,
+    "duplicates": [
+      "gh_virt_wdt.ko",
+      "qcom_wdt_core.ko"
+    ]
+  },
+  "required_qualification": {
+    "kernel_source_commit": null,
+    "kernel_config_hash": null,
+    "toolchain_revision": null,
+    "kmi_symbol_list_hash": null,
+    "module_symvers_hash": null,
+    "compiled_modules_hash": null,
+    "dependency_order_qualified": false,
+    "vendor_boot_modules_qualified": false,
+    "vendor_dlkm_modules_qualified": false,
+    "firmware_qualified": false,
+    "boot_proven": false
+  },
+  "exclusions": [
+    "ROM-specific LineageOS product dependencies",
+    "FM radio",
+    "unverified vendor modules",
+    "test keys"
+  ]
+}
