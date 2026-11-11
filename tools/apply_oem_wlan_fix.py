@@ -1,35 +1,73 @@
 #!/usr/bin/env python3
-"""Reproducible one-line Xiaomi WLAN ABI-neutral C prototype correction."""
+"""Byte-exact, minimal Xiaomi QCACLD Clang23 compatibility corrections.
+
+The pinned vendor sources remain unchanged in Git. Corrections affect only
+disposable CI source working trees, after checking their exact OEM blob IDs.
+"""
 import argparse
 import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FILE = ROOT / "upstream/xiaomi-wlan/qcacld-3.0/core/mac/src/include/parser_api.h"
-OEM_BLOB = "03e33b11d583a16dd3b8666ff7764ed45f27b5ba"
-FROM = b"\t\t   uint8_t mdie[]);"
-TO = b"\t\t   uint8_t mdie[SIR_MDIE_SIZE]);"
+WLAN = ROOT / "upstream/xiaomi-wlan"
+PATCHES = (
+    {
+        "path": "qcacld-3.0/core/mac/src/include/parser_api.h",
+        "blob": "03e33b11d583a16dd3b8666ff7764ed45f27b5ba",
+        "from": b"\t\t   uint8_t mdie[]);",
+        "to": b"\t\t   uint8_t mdie[SIR_MDIE_SIZE]);",
+    },
+    {
+        "path": "qca-wifi-host-cmn/target_if/core/src/target_if_main.c",
+        "blob": "35d6be02cf60fdd2300aaa9643d0ec1a8de8cf3d",
+        "from": b"struct target_if_ctx *target_if_get_ctx()\n",
+        "to": b"struct target_if_ctx *target_if_get_ctx(void)\n",
+    },
+)
+HEADER_PATH = "qca-wifi-host-cmn/target_if/core/inc/target_if.h"
+HEADER_BLOB = "f56cceecbd790c8894c9556494b1d12bd8aff5ce"
 
-def blob_id(data):
-    return hashlib.sha1(b"blob " + str(len(data)).encode() + bytes([0]) + data).hexdigest()
+
+def blob_id(content):
+    return hashlib.sha1(
+        b"blob " + str(len(content)).encode("ascii") + bytes([0]) + content
+    ).hexdigest()
+
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--apply", action="store_true", help="Mutate only the disposable vendor submodule working tree")
+    parser.add_argument(
+        "--apply", action="store_true",
+        help="Modify only the disposable, pinned Xiaomi WLAN checkout"
+    )
     args = parser.parse_args()
-    original = FILE.read_bytes()
-    if blob_id(original) != OEM_BLOB:
-        parser.error("The original Xiaomi WLAN header has changed; refusing a speculative edit")
-    if original.count(FROM) != 1 or original.count(TO) != 0:
-        parser.error("Expected exactly one original populate_mdie declaration")
-    updated = original.replace(FROM, TO)
+    # The function header already declares the correct (void) prototype.
+    header = (WLAN / HEADER_PATH).read_bytes()
+    if blob_id(header) != HEADER_BLOB or (
+        header.count(b"struct target_if_ctx *target_if_get_ctx(void);") != 1
+    ):
+        parser.error("Expected original Qualcomm target_if_get_ctx(void) declaration")
+
+    validated = []
+    for spec in PATCHES:
+        path = WLAN / spec["path"]
+        raw = path.read_bytes()
+        if blob_id(raw) != spec["blob"]:
+            parser.error(f"Unexpected Xiaomi source revision: {spec['path']}")
+        if raw.count(spec["from"]) != 1 or raw.count(spec["to"]) != 0:
+            parser.error(f"Expected exactly one original declaration: {spec['path']}")
+        updated = raw.replace(spec["from"], spec["to"])
+        validated.append((path, raw, updated))
+
     if args.apply:
-        FILE.write_bytes(updated)
-        if FILE.read_bytes() != updated:
-            parser.error("Failed to update disposable OEM source checkout")
-        print("[PASS] One ABI-neutral header parameter bound corrected")
+        for path, _, updated in validated:
+            path.write_bytes(updated)
+            if path.read_bytes() != updated:
+                parser.error(f"Failed to update disposable checkout: {path}")
+        print(f"[PASS] Applied {len(validated)} exact OEM Clang23 source fixes")
     else:
-        print("[PASS] Exact source blob and single reviewed prototype correction verified")
+        print(f"[PASS] Validated {len(validated)} pinned OEM source edits")
+
 
 if __name__ == "__main__":
     main()
