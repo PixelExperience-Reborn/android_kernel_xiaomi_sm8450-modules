@@ -48,10 +48,27 @@ jobs:
       - name: Install pinned OEM kernel build prerequisites
         run: |
           set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            bc bison flex make libssl-dev libelf-dev dwarves \
-            binutils-aarch64-linux-gnu kmod
+          # Ubuntu's Azure mirror can intermittently fail DNS lookup.
+          # Retry infrastructure failures, but never skip required tools.
+          for attempt in 1 2 3 4; do
+            if sudo apt-get -o Acquire::Retries=3 update -qq &&
+               sudo DEBIAN_FRONTEND=noninteractive apt-get \
+                 -o Acquire::Retries=3 install -y --no-install-recommends \
+                 bc bison flex make libssl-dev libelf-dev dwarves \
+                 binutils-aarch64-linux-gnu kmod; then
+              break
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              echo "::error::Ubuntu package mirrors unavailable after 4 attempts"
+              exit 1
+            fi
+            sleep "$((attempt * 15))"
+          done
+          command -v pahole
+          command -v aarch64-linux-gnu-ld
+          command -v modinfo
+          dpkg-query -W -f='${Package} ${Version}\n' \
+            libssl-dev libelf-dev dwarves binutils-aarch64-linux-gnu kmod
       - name: Restore compiler cache
         id: clang-cache
         uses: actions/cache/restore@v4
