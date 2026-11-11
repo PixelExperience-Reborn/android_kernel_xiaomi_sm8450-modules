@@ -99,6 +99,9 @@ jobs:
           test -s "$module"
           modinfo -F vermagic "$module"
           modinfo -F depends "$module"
+          python3 tools/verify_external_wlan_abi.py \
+            --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
+            --module "$module" --out "$RUNNER_TEMP/wlan-abi-evidence.json"
           echo "[PASS] Xiaomi QCACLD compiled against own kernel Module.symvers" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] WLAN firmware, vendor_dlkm integration, hardware boot" >> "$GITHUB_STEP_SUMMARY"
       - name: Save diagnostic ABI evidence
@@ -112,3 +115,4 @@ jobs:
             /tmp/mondrian-out/.config
             /tmp/mondrian-out/Module.symvers
             upstream/xiaomi-wlan/qcacld-3.0/*.ko
+            /tmp/wlan-abi-evidence.json
