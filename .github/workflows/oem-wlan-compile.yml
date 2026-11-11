@@ -26,6 +26,7 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -v
           python3 tools/verify_oem_wlan.py
+          git -C upstream/xiaomi-wlan apply --check "$GITHUB_WORKSPACE/patches/wlan/0001-qcacld-populate-mdie-array-bound.patch"
           python3 tools/verify_qcom_mmrm.py
 
   external-wlan:
@@ -87,6 +88,12 @@ jobs:
           export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
           make -C kernel O="$RUNNER_TEMP/mondrian-out" -j3 vmlinux Image modules
           test -s "$RUNNER_TEMP/mondrian-out/Module.symvers"
+      - name: Apply reviewed Xiaomi WLAN header correction
+        run: |
+          set -euo pipefail
+          git -C upstream/xiaomi-wlan apply --check "$GITHUB_WORKSPACE/patches/wlan/0001-qcacld-populate-mdie-array-bound.patch"
+          git -C upstream/xiaomi-wlan apply "$GITHUB_WORKSPACE/patches/wlan/0001-qcacld-populate-mdie-array-bound.patch"
+          grep -F 'uint8_t mdie[SIR_MDIE_SIZE]);' upstream/xiaomi-wlan/qcacld-3.0/core/mac/src/include/parser_api.h
       - name: Build Qualcomm official MMRM against selected OEM Module.symvers
         run: |
           set -euo pipefail

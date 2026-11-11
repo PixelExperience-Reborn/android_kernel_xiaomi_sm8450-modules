@@ -1,0 +1,7 @@
+diff --git a/qcacld-3.0/core/mac/src/include/parser_api.h b/qcacld-3.0/core/mac/src/include/parser_api.h
+--- a/qcacld-3.0/core/mac/src/include/parser_api.h
++++ b/qcacld-3.0/core/mac/src/include/parser_api.h
+@@ -1128,2 +1128,2 @@
+ void populate_mdie(struct mac_context *mac, tDot11fIEMobilityDomain *pDot11f,
+-		   uint8_t mdie[]);
++		   uint8_t mdie[SIR_MDIE_SIZE]);
