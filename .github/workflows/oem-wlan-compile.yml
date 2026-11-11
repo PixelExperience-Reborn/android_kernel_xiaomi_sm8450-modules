@@ -100,8 +100,14 @@ jobs:
           export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
           export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
           mmrm="$GITHUB_WORKSPACE/upstream/qualcomm/mmrm"
+          # Qualcomm's top-level MMRM Kbuild also descends into test/,
+          # which has no Makefile in this pinned upstream tag. Compile only
+          # the production driver/Kbuild, preserving the original sources.
+          test -f "$mmrm/driver/Kbuild"
+          test -f "$mmrm/config/waipiommrmconf.h"
           make -C kernel O="$RUNNER_TEMP/mondrian-out" -j3 \
-            M="$mmrm" MMRM_ROOT="$mmrm" modules
+            M="$mmrm/driver" MMRM_ROOT="$mmrm" CONFIG_MSM_MMRM=y \
+            KCFLAGS="-include $mmrm/config/waipiommrmconf.h" modules
           module="$mmrm/driver/msm-mmrm.ko"
           test -s "$module"
           modinfo -F vermagic "$module"
