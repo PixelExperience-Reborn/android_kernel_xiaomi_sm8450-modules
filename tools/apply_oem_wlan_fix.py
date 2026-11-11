@@ -29,6 +29,7 @@ PATCHES = (
         "from": b"return A_ERROR; /* failure */",
         "to": b"return QDF_STATUS_E_FAILURE; /* failure */",
         "expected_occurrences": 2,
+        "existing_target_occurrences": 6,
     },
 )
 HEADER_PATH = "qca-wifi-host-cmn/target_if/core/inc/target_if.h"
@@ -62,7 +63,9 @@ def main():
         if blob_id(raw) != spec["blob"]:
             parser.error(f"Unexpected Xiaomi source revision: {spec['path']}")
         expected = spec.get("expected_occurrences", 1)
-        if raw.count(spec["from"]) != expected or raw.count(spec["to"]) != 0:
+        existing_to = spec.get("existing_target_occurrences", 0)
+        if (raw.count(spec["from"]) != expected or
+                raw.count(spec["to"]) != existing_to):
             parser.error(
                 f"Expected exactly {expected} original declarations: {spec['path']}"
             )
