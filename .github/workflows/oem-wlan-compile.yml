@@ -4,11 +4,11 @@ on:
   push:
     branches: [bringup/a17-mondrian-oem-bsp-20261111]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: mondrian-oem-external-wlan-build
   cancel-in-progress: true
-  workflow_dispatch:
 
 permissions:
   contents: read
