@@ -32,6 +32,16 @@ PATCHES = (
         "existing_target_occurrences": 6,
     },
     {
+        "path": "qca-wifi-host-cmn/hif/src/ce/ce_main.c",
+        "blob": "8a899dd47f46bfd9a3966d52717c8017f10655c4",
+        # hif_send_head() returns QDF_STATUS. A_ERROR is an unrelated
+        # A_STATUS enum type; use the driver's QDF generic failure code.
+        "from": (b'\t\thif_err("CE handle is null");\n'
+                 b"\t\treturn A_ERROR;\n"),
+        "to": (b'\t\thif_err("CE handle is null");\n'
+               b"\t\treturn QDF_STATUS_E_FAILURE;\n"),
+    },
+    {
         "path": "qca-wifi-host-cmn/hif/src/hif_exec.c",
         "blob": "9c23342fb5fd50332d1fe78981fb85473b8a62e2",
         # The vendor helper already initializes the atomic under the
