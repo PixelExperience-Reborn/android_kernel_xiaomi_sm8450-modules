@@ -1,7 +1,7 @@
 name: Mondrian Qualcomm module BSP contracts (source only)
 on:
   push:
-    branches: [seventeen, 'audit/**']
+    branches: [seventeen, 'audit/**', 'bringup/**']
   pull_request:
 jobs:
   contracts:

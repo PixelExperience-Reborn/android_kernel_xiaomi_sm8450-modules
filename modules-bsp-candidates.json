@@ -69,5 +69,55 @@
       "kmi_qualified": false,
       "vendor_dlkm_packaged": false
     }
+  },
+  "selected_oem_source_candidates": {
+    "kernel": {
+      "repository": "MiCode/Xiaomi_Kernel_OpenSource",
+      "branch": "mondrian-s-oss",
+      "commit_sha": "989b27aa8391a2ede9b067b53877c4c3343955fe",
+      "module_list": "modules.list.msm.mondrian",
+      "module_list_blob_sha": "1ee612bfd4090af12f88629a66b069eec9192825"
+    },
+    "wlan": {
+      "repository": "MiCode/vendor_qcom_opensource_wlan",
+      "branch": "mondrian-s-oss",
+      "commit_sha": "334e5943b77af50dfd1fc7eb872a26b79ae5119f",
+      "source_subtrees": [
+        "qcacld-3.0",
+        "qca-wifi-host-cmn",
+        "fw-api"
+      ],
+      "optional_not_selected": [
+        "sigma-dut"
+      ],
+      "qcacld_kbuild_blob_sha": "8d8008766f4b9b38127eb0d8c52b44916d7e3c1e",
+      "qcacld_makefile_blob_sha": "0bd68093b19e9e7d8a3ccb3bbb1794b38870617b",
+      "status": "official_xiaomi_source_candidate_not_built"
+    },
+    "audio": {
+      "repository": "MiCode/vendor_qcom_opensource_audio-kernel",
+      "mondrian_s_oss_branch_exists": false,
+      "status": "qualcomm_release_matching_kernel_must_be_identified"
+    },
+    "missing_modules": {
+      "status": "Qualcomm BSP revisions not selected; no external driver source imported",
+      "categories": [
+        "MMRM",
+        "Display",
+        "Camera",
+        "Video/CVP/EVA",
+        "IPA/RMNET",
+        "Audio"
+      ]
+    },
+    "selected_kernel": {
+      "repository": "PixelExperience-Reborn/android_kernel_xiaomi_sm8450",
+      "commit_sha": "2466406b9beac724960b0c88e6e794421d0466e7",
+      "version": "5.10.81"
+    },
+    "abi_verified": false,
+    "external_ko_compiled": false,
+    "vendor_dlkm_packaged": false,
+    "hardware_qualified": false
   }
 }
