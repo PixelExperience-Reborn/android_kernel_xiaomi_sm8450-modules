@@ -1,0 +1,3 @@
+[submodule "upstream/xiaomi-wlan"]
+	path = upstream/xiaomi-wlan
+	url = https://github.com/MiCode/vendor_qcom_opensource_wlan.git
