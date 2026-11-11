@@ -31,6 +31,17 @@ PATCHES = (
         "expected_occurrences": 2,
         "existing_target_occurrences": 6,
     },
+    {
+        "path": "qca-wifi-host-cmn/hif/src/hif_exec.c",
+        "blob": "9c23342fb5fd50332d1fe78981fb85473b8a62e2",
+        # The vendor helper already initializes the atomic under the
+        # FEATURE_IRQ_AFFINITY feature guard. Never initialize it again
+        # outside the guard, where the field is absent.
+        "from": (b"\tqdf_atomic_init(&hif_ext_group->force_napi_complete);\n"
+                 b"\thif_init_force_napi_complete(hif_ext_group);"),
+        "to": b"\thif_init_force_napi_complete(hif_ext_group);",
+        "existing_target_occurrences": 1,
+    },
 )
 HEADER_PATH = "qca-wifi-host-cmn/target_if/core/inc/target_if.h"
 HEADER_BLOB = "f56cceecbd790c8894c9556494b1d12bd8aff5ce"
@@ -55,6 +66,16 @@ def main():
         header.count(b"struct target_if_ctx *target_if_get_ctx(void);") != 1
     ):
         parser.error("Expected original Qualcomm target_if_get_ctx(void) declaration")
+
+    hif_header = (WLAN / "qca-wifi-host-cmn/hif/src/hif_exec.h").read_bytes()
+    if (b"#ifdef FEATURE_IRQ_AFFINITY\n"
+            b"\tqdf_atomic_t force_napi_complete;\n#endif" not in hif_header):
+        parser.error("Qualcomm IRQ affinity struct guard differs from OEM")
+
+    hif_source = (WLAN / "qca-wifi-host-cmn/hif/src/hif_exec.c").read_bytes()
+    if (b"#ifdef FEATURE_IRQ_AFFINITY\nstatic inline void\n"
+            b"hif_init_force_napi_complete(" not in hif_source):
+        parser.error("Qualcomm guarded NAPI atomic initializer is absent")
 
     validated = []
     for spec in PATCHES:
