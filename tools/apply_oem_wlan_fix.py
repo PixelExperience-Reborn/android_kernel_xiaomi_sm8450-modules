@@ -23,6 +23,13 @@ PATCHES = (
         "from": b"struct target_if_ctx *target_if_get_ctx()\n",
         "to": b"struct target_if_ctx *target_if_get_ctx(void)\n",
     },
+    {
+        "path": "qcacld-3.0/core/dp/htt/htt_h2t.c",
+        "blob": "b85f7c7a1b19fb4b999bad907026c27ca3a0dbb8",
+        "from": b"return A_ERROR; /* failure */",
+        "to": b"return QDF_STATUS_E_FAILURE; /* failure */",
+        "expected_occurrences": 2,
+    },
 )
 HEADER_PATH = "qca-wifi-host-cmn/target_if/core/inc/target_if.h"
 HEADER_BLOB = "f56cceecbd790c8894c9556494b1d12bd8aff5ce"
@@ -54,8 +61,11 @@ def main():
         raw = path.read_bytes()
         if blob_id(raw) != spec["blob"]:
             parser.error(f"Unexpected Xiaomi source revision: {spec['path']}")
-        if raw.count(spec["from"]) != 1 or raw.count(spec["to"]) != 0:
-            parser.error(f"Expected exactly one original declaration: {spec['path']}")
+        expected = spec.get("expected_occurrences", 1)
+        if raw.count(spec["from"]) != expected or raw.count(spec["to"]) != 0:
+            parser.error(
+                f"Expected exactly {expected} original declarations: {spec['path']}"
+            )
         updated = raw.replace(spec["from"], spec["to"])
         validated.append((path, raw, updated))
 
