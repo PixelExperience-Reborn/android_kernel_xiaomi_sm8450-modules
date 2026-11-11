@@ -23,3 +23,12 @@ The latest exact-OEM-kernel external WLAN CI [#43018421487](https://github.com/P
 ## Qualcomm Copy Engine error-status compatibility (2026-11-11)
 
 The first completed full compile after the HIF NAPI correction, [run #43026300323](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/43026300323), passed the full Xiaomi OEM kernel, `Module.symvers` and the official Qualcomm MMRM external module. Xiaomi QCACLD then hit Clang23 `-Wimplicit-enum-enum-cast` at `qca-wifi-host-cmn/hif/src/ce/ce_main.c:2740`: `hif_send_head()` returns `QDF_STATUS` but the CE-handle-null branch returns a distinct `A_STATUS` constant, `A_ERROR`. This branch now returns `QDF_STATUS_E_FAILURE`, already used for failure cases in the same Qualcomm HIF source. Only this single, source-pinned branch is changed, without suppressing warnings or modifying the OEM kernel or any upstream repository. Rebuilding and firmware validation remain required.
+
+## Additional LLVM 23 and Qualcomm IRQ affinity fixes (2026-11-11)
+
+The [full push build #43049861536](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/43049861536) now **passes the isolated, signed Ubuntu 24.04 dependency installation**, full Xiaomi OEM `vmlinux/Image/modules` and official external Qualcomm MMRM compilation and ABI evidence gate. It then stops in Xiaomi WLAN:
+
+- `qca-wifi-host-cmn/hif/src/ce/ce_service_legacy.c:1320` — legacy empty-argument function definition `ce_services_legacy()` fails strict Clang 23 `-Wstrict-prototypes`. Define `ce_services_legacy(void)`; no code behavior or ABI changes.
+- `qca-wifi-host-cmn/hif/src/dispatcher/multibus_snoc.c:84` — SNOC assigns `hif_set_grp_intr_affinity` unconditionally even though Qualcomm's own `multibus.h` only declares the member with `FEATURE_IRQ_AFFINITY`. Qualcomm's `multibus.c` guards the same assignment correctly. Add the identical `#ifdef FEATURE_IRQ_AFFINITY` around the SNOC assignment, retaining it in configurations that enable the feature and avoiding access to an absent field otherwise.
+
+Both corrections validate the exact OEM Git blobs before touching the disposable checkout. They are **not** imports from LineageOS, driver rewrites or compiler-warning suppressions. Full QCACLD `.ko` compatibility is pending a new successful end-to-end build.

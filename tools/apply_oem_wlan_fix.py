@@ -32,6 +32,29 @@ PATCHES = (
         "existing_target_occurrences": 6,
     },
     {
+        "path": "qca-wifi-host-cmn/hif/src/ce/ce_service_legacy.c",
+        "blob": "22929fff13c2b6f78c12b526da02c9f55c231d87",
+        # Old C function with empty args is rejected by Clang 23.
+        "from": b"struct ce_ops *ce_services_legacy()\n",
+        "to": b"struct ce_ops *ce_services_legacy(void)\n",
+    },
+    {
+        "path": "qca-wifi-host-cmn/hif/src/dispatcher/multibus_snoc.c",
+        "blob": "0f430dde55390ddceebe43b4019453cdf999ff18",
+        # Same Qualcomm FEATURE_IRQ_AFFINITY guard as multibus.h
+        # and the correctly guarded default bus ops in multibus.c.
+        "from": (
+            b"\tbus_ops->hif_set_grp_intr_affinity = "
+            b"&hif_dummy_set_grp_intr_affinity;\n"
+        ),
+        "to": (
+            b"#ifdef FEATURE_IRQ_AFFINITY\n"
+            b"\tbus_ops->hif_set_grp_intr_affinity = "
+            b"&hif_dummy_set_grp_intr_affinity;\n"
+            b"#endif\n"
+        ),
+    },
+    {
         "path": "qca-wifi-host-cmn/hif/src/ce/ce_main.c",
         "blob": "8a899dd47f46bfd9a3966d52717c8017f10655c4",
         # hif_send_head() returns QDF_STATUS. A_ERROR is an unrelated
@@ -86,6 +109,17 @@ def main():
     if (b"#ifdef FEATURE_IRQ_AFFINITY\nstatic inline void\n"
             b"hif_init_force_napi_complete(" not in hif_source):
         parser.error("Qualcomm guarded NAPI atomic initializer is absent")
+
+    # Qualcomm itself guards this member in the struct and in the
+    # default bus-op initialization; SNOC must obey exactly that contract.
+    struct_ops = (WLAN / "qca-wifi-host-cmn/hif/src/dispatcher/multibus.h").read_bytes()
+    if (b"#ifdef FEATURE_IRQ_AFFINITY\n"
+            b"\tvoid (*hif_set_grp_intr_affinity)" not in struct_ops):
+        parser.error("Qualcomm IRQ affinity bus-ops feature guard missing")
+    default_ops = (WLAN / "qca-wifi-host-cmn/hif/src/dispatcher/multibus.c").read_bytes()
+    if (b"#ifdef FEATURE_IRQ_AFFINITY\n"
+            b"\tbus_ops->hif_set_grp_intr_affinity" not in default_ops):
+        parser.error("Qualcomm default bus ops guard differs")
 
     validated = []
     for spec in PATCHES:
