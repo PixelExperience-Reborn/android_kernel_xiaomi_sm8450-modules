@@ -119,5 +119,31 @@
     "external_ko_compiled": false,
     "vendor_dlkm_packaged": false,
     "hardware_qualified": false
+  },
+  "qualcomm_official_candidates": {
+    "mmrm": {
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/mmrm-driver.git",
+      "tag": "VIDEO.LA.2.0.r1-10200-WAIPIO.0",
+      "commit_sha": "41774fa5be3d34ba35c2f929744f01c4494e7a99",
+      "status": "official_source_pinned_build_pending"
+    },
+    "display": {
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/display-drivers.git",
+      "tag": "DISPLAY.LA.2.0.r1-13000-WAIPIO.0",
+      "commit_sha": "8889165ca06c36c2240d702494da7527941d38b1",
+      "status": "source_candidate_no_abi_qualification"
+    },
+    "camera": {
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/camera-kernel.git",
+      "tag": "CAMERA.LA.2.0.r1-11800-WAIPIO.0",
+      "commit_sha": "195bbfdc0a370dd61902b8039358cb9b14227361",
+      "status": "source_candidate_no_abi_qualification"
+    },
+    "video": {
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/video-driver.git",
+      "tag": "VIDEO.LA.2.0.r1-10200-WAIPIO.0",
+      "commit_sha": "707fcdb08626667663d13cfceeb2d9dfe92893e3",
+      "status": "source_candidate_no_abi_qualification"
+    }
   }
 }

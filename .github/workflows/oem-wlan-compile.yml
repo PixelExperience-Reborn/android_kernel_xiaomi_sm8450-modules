@@ -4,6 +4,10 @@ on:
   push:
     branches: [bringup/a17-mondrian-oem-bsp-20261111]
   pull_request:
+
+concurrency:
+  group: mondrian-oem-external-wlan-build
+  cancel-in-progress: true
   workflow_dispatch:
 
 permissions:
@@ -22,8 +26,10 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -v
           python3 tools/verify_oem_wlan.py
+          python3 tools/verify_qcom_mmrm.py
 
   external-wlan:
+    if: github.event_name != 'pull_request'
     needs: source
     runs-on: ubuntu-24.04
     timeout-minutes: 75
@@ -81,6 +87,22 @@ jobs:
           export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
           make -C kernel O="$RUNNER_TEMP/mondrian-out" -j3 vmlinux Image modules
           test -s "$RUNNER_TEMP/mondrian-out/Module.symvers"
+      - name: Build Qualcomm official MMRM against selected OEM Module.symvers
+        run: |
+          set -euo pipefail
+          export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
+          export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+          mmrm="$GITHUB_WORKSPACE/upstream/qualcomm/mmrm"
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" -j3 \
+            M="$mmrm" MMRM_ROOT="$mmrm" modules
+          module="$mmrm/driver/msm-mmrm.ko"
+          test -s "$module"
+          modinfo -F vermagic "$module"
+          python3 tools/verify_external_module_abi.py \
+            --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
+            --module "$module" --out "$RUNNER_TEMP/mmrm-abi-evidence.json"
+          echo "[PASS] Qualcomm official MMRM compiled against OEM kernel symbols" >> "$GITHUB_STEP_SUMMARY"
+          echo "[PENDING] Qualcomm display/camera/audio users and hardware validation" >> "$GITHUB_STEP_SUMMARY"
       - name: Build Xiaomi QCACLD QCA6490 as external kernel module
         run: |
           set -euo pipefail
@@ -99,7 +121,7 @@ jobs:
           test -s "$module"
           modinfo -F vermagic "$module"
           modinfo -F depends "$module"
-          python3 tools/verify_external_wlan_abi.py \
+          python3 tools/verify_external_module_abi.py \
             --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
             --module "$module" --out "$RUNNER_TEMP/wlan-abi-evidence.json"
           echo "[PASS] Xiaomi QCACLD compiled against own kernel Module.symvers" >> "$GITHUB_STEP_SUMMARY"
@@ -115,4 +137,7 @@ jobs:
             /tmp/mondrian-out/.config
             /tmp/mondrian-out/Module.symvers
             upstream/xiaomi-wlan/qcacld-3.0/*.ko
+            upstream/qualcomm/mmrm/driver/*.ko
+            /home/runner/work/_temp/mmrm-abi-evidence.json
+            /home/runner/work/_temp/wlan-abi-evidence.json
             /tmp/wlan-abi-evidence.json
