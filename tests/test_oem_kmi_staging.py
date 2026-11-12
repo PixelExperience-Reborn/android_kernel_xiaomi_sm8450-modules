@@ -55,6 +55,20 @@ class ModuleStagingTests(unittest.TestCase):
         self.assertEqual(actual, expected)
         self.assertNotEqual(module.insmod_basenames(wlan), expected)
 
+    def test_modprobe_trailing_whitespace_is_not_part_of_filename(self):
+        # Real modprobe --show-depends output from CI appends spaces
+        # after OEM .ko paths. Names must match staged file basenames.
+        rows = [
+            "insmod /tmp/kernel/cfg80211.ko ",
+            "insmod   /tmp/kernel/icnss2.ko  ",
+            "insmod /tmp/extra/qca_cld3_qca6490.ko  ",
+            "install /usr/bin/ignored",
+        ]
+        self.assertEqual(
+            module.insmod_basenames(rows),
+            {"cfg80211.ko", "icnss2.ko", "qca_cld3_qca6490.ko"},
+        )
+
     def test_config_parser(self):
         with tempfile.TemporaryDirectory() as root:
             p = Path(root) / ".config"
