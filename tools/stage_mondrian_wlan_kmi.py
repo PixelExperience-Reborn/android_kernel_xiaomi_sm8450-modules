@@ -43,7 +43,9 @@ def module_name(path):
 
 def insmod_basenames(commands):
     """Kernel modules that modprobe would load, excluding built-ins."""
-    return {Path(row.split(" ", 1)[1]).name
+    # `modprobe --show-depends` may print `insmod /path/module.ko ` with
+    # trailing whitespace. This whitespace is not part of the module filename.
+    return {Path(row.split(" ", 1)[1].strip()).name
             for row in commands if row.startswith("insmod ")}
 
 
