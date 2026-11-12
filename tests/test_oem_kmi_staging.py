@@ -42,6 +42,19 @@ class ModuleStagingTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "cycle"):
                 module.compute_closure(["a"], {"a": Path("a.ko"), "b": Path("b.ko")})
 
+    def test_modprobe_union_of_two_independent_roots(self):
+        # Modprobe of WLAN cannot be expected to load MMRM and its
+        # otherwise unrelated transitive dependencies.
+        wlan = ["insmod /tmp/kernel/cfg80211.ko",
+                "insmod /tmp/extra/qca_cld3_qca6490.ko"]
+        mmrm = ["insmod /tmp/kernel/qcom_clock.ko",
+                "insmod /tmp/extra/msm-mmrm.ko"]
+        expected = {"cfg80211.ko", "qca_cld3_qca6490.ko",
+                    "qcom_clock.ko", "msm-mmrm.ko"}
+        actual = module.insmod_basenames(wlan) | module.insmod_basenames(mmrm)
+        self.assertEqual(actual, expected)
+        self.assertNotEqual(module.insmod_basenames(wlan), expected)
+
     def test_config_parser(self):
         with tempfile.TemporaryDirectory() as root:
             p = Path(root) / ".config"

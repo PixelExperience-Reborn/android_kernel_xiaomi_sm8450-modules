@@ -41,6 +41,12 @@ def module_name(path):
     return command(["modinfo", "-F", "name", path]).replace("-", "_")
 
 
+def insmod_basenames(commands):
+    """Kernel modules that modprobe would load, excluding built-ins."""
+    return {Path(row.split(" ", 1)[1]).name
+            for row in commands if row.startswith("insmod ")}
+
+
 def parse_config(path):
     return {row.split("=", 1)[0]: row.split("=", 1)[1]
             for row in path.read_text().splitlines()
@@ -132,15 +138,34 @@ def main():
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(original, target)
         mapping[name] = str(target.relative_to(module_root))
-    # Build depmod tables using the complete transitive compiled-module closure.
+    # depmod must see the same built-in and ordered-module metadata that
+    # belonged to the exact OEM kernel build; do not generate placeholders.
+    for name in ("modules.order", "modules.builtin", "modules.builtin.modinfo"):
+        original = kout / name
+        if not original.is_file():
+            p.error(f"Missing genuine OEM kernel metadata: {original}")
+        shutil.copy2(original, module_root / name)
     subprocess.run(["depmod", "-b", str(dest), "-a", release], check=True)
-    checked = command(["modprobe", "-d", dest, "-S", release,
-                       "--show-depends", wlan_name]).splitlines()
+
+    # These are TWO independent load roots. The MMRM closure is not
+    # necessarily a dependency of WLAN, so checking only WLAN would falsely
+    # reject transitive MMRM modules as missing.
+    checked_wlan = command(["modprobe", "-d", dest, "-S", release,
+                            "--show-depends", wlan_name]).splitlines()
+    checked_mmrm = command(["modprobe", "-d", dest, "-S", release,
+                            "--show-depends", mmrm_name]).splitlines()
     expected = {Path(s).name for s in mapping.values()}
-    actual = {Path(s.split(" ", 1)[1]).name for s in checked
-              if s.startswith("insmod ")}
-    if not expected.issubset(actual | {mmrm.name}):
-        p.error("modprobe dry-run did not resolve complete WLAN dependency graph")
+    wlan_actual = insmod_basenames(checked_wlan)
+    mmrm_actual = insmod_basenames(checked_mmrm)
+    if wlan.name not in wlan_actual or mmrm.name not in mmrm_actual:
+        p.error("modprobe dry-run omitted the selected WLAN or MMRM root")
+    actual = wlan_actual | mmrm_actual
+    missing = expected - actual
+    unexpected = actual - expected
+    if missing or unexpected:
+        p.error("OEM modprobe closure differs: missing=" +
+                ", ".join(sorted(missing)) + " unexpected=" +
+                ", ".join(sorted(unexpected)))
     manifest = {
         "device": "mondrian",
         "kernel_commit": KERNEL_SHA,
@@ -149,7 +174,9 @@ def main():
         "staged_module_order": order,
         "module_files": mapping,
         "sha256": {name: sha256(files[name]) for name in order},
-        "modprobe_wlan_insmod_order": checked,
+        "modprobe_wlan_insmod_order": checked_wlan,
+        "modprobe_mmrm_insmod_order": checked_mmrm,
+        "both_root_dry_run_union_matches_staged_closure": True,
         "compiled_and_dependency_closure_checked": True,
         "release_vendor_dlkm_packaging": False,
         "firmware_verified": False,
