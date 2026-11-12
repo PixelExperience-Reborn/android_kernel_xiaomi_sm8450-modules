@@ -143,6 +143,17 @@ jobs:
             --module "$module" --out "$RUNNER_TEMP/wlan-abi-evidence.json"
           echo "[PASS] Xiaomi QCACLD compiled against own kernel Module.symvers" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] WLAN firmware, vendor_dlkm integration, hardware boot" >> "$GITHUB_STEP_SUMMARY"
+      - name: Stage Xiaomi WLAN kernel dependency closure and verify load order
+        run: |
+          set -euo pipefail
+          python3 tools/stage_mondrian_wlan_kmi.py \
+            --kernel kernel \
+            --kernel-out "$RUNNER_TEMP/mondrian-out" \
+            --wlan "$GITHUB_WORKSPACE/upstream/xiaomi-wlan/qcacld-3.0/qca_cld3_qca6490.ko" \
+            --mmrm "$GITHUB_WORKSPACE/upstream/qualcomm/mmrm/driver/msm-mmrm.ko" \
+            --out "$RUNNER_TEMP/mondrian-stage"
+          cat "$RUNNER_TEMP/mondrian-stage/mondrian-wlan-diagnostic-manifest.json" \
+            >> "$GITHUB_STEP_SUMMARY"
       - name: Save diagnostic ABI evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -158,3 +169,7 @@ jobs:
             /home/runner/work/_temp/mmrm-abi-evidence.json
             /home/runner/work/_temp/wlan-abi-evidence.json
             /tmp/wlan-abi-evidence.json
+            ${{ runner.temp }}/mondrian-stage/mondrian-wlan-diagnostic-manifest.json
+            ${{ runner.temp }}/mondrian-stage/lib/modules/**/modules.dep
+            ${{ runner.temp }}/mondrian-stage/lib/modules/**/kernel/**/*.ko
+            ${{ runner.temp }}/mondrian-stage/lib/modules/**/extra/*.ko
