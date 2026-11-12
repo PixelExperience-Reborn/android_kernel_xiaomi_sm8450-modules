@@ -24,14 +24,26 @@ class OemSourceSelectionTests(unittest.TestCase):
 
     def test_no_unverified_external_driver_or_abi_claim(self):
         selected = self.cfg["selected_oem_source_candidates"]
-        self.assertEqual(self.cfg["build_status"], "not_buildable")
-        self.assertFalse(selected["abi_verified"])
-        self.assertFalse(selected["external_ko_compiled"])
+        self.assertEqual(self.cfg["build_status"], "oem_kernel_mmrm_wlan_compile_pass_other_bsp_incomplete")
+        verified = self.cfg["last_verified_build"]
+        self.assertEqual(verified["run_id"], 43088150435)
+        self.assertEqual(verified["head"],
+                         "ae801df4a5fe8bb0c367c2df3c31a1dbaa49b773")
+        self.assertTrue(verified["kernel_llvm23_compiled"])
+        self.assertTrue(verified["mmrm_compiled"])
+        self.assertTrue(verified["wlan_compiled"])
+        self.assertTrue(selected["abi_verified"])
+        self.assertTrue(selected["external_ko_compiled"])
+        self.assertFalse(verified["vendor_dlkm_release_qualified"])
+        self.assertFalse(verified["device_runtime_qualified"])
         self.assertFalse(selected["vendor_dlkm_packaged"])
         self.assertFalse(selected["hardware_qualified"])
         self.assertFalse(selected["audio"]["mondrian_s_oss_branch_exists"])
         self.assertEqual(selected["missing_modules"]["status"],
-                         "Qualcomm BSP revisions not selected; no external driver source imported")
+                         "Remaining Qualcomm BSP source selection and compatibility pending")
+        self.assertNotIn("MMRM", selected["missing_modules"]["categories"])
+        self.assertTrue(self.cfg["wlan_runtime_closure"]["direct_modinfo_dependencies"])
+        self.assertFalse(self.cfg["wlan_runtime_closure"]["vendor_dlkm_packaged"])
 
     def test_comparison_source_remains_read_only(self):
         self.assertEqual(self.cfg["reference_module_source"]["status"], "read_only_not_selected")

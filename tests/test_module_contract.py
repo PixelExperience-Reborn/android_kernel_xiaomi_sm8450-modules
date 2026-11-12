@@ -17,7 +17,7 @@ class ModuleContractTests(unittest.TestCase):
         self.assertEqual(d["device"], "mondrian")
         self.assertEqual(d["soc"], "SM8475")
         self.assertEqual(d["android_base"], "AOSP 17")
-        self.assertEqual(d["build_status"], "not_buildable")
+        self.assertEqual(d["build_status"], "oem_kernel_mmrm_wlan_compile_pass_other_bsp_incomplete")
         s = d["reference_module_source"]
         self.assertEqual(s["status"], "read_only_not_selected")
         self.assertNotEqual(s["commit_sha"], s["tree_sha"])

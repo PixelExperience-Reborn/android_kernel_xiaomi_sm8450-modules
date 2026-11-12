@@ -100,9 +100,8 @@
       "status": "qualcomm_release_matching_kernel_must_be_identified"
     },
     "missing_modules": {
-      "status": "Qualcomm BSP revisions not selected; no external driver source imported",
+      "status": "Remaining Qualcomm BSP source selection and compatibility pending",
       "categories": [
-        "MMRM",
         "Display",
         "Camera",
         "Video/CVP/EVA",
