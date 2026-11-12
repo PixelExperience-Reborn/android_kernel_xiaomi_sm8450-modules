@@ -1,0 +1,34 @@
+# Qualcomm external module development for mondrian
+
+The primary source is the pinned Xiaomi manufacturer kernel. This repository links the actual manufacturer WLAN source as a versioned Git submodule (MiCode/vendor_qcom_opensource_wlan, mondrian-s-oss commit 334e5943b77af50dfd1fc7eb872a26b79ae5119f). The prior contract and module list are preserved. No sources from LineageOS are included.
+
+Run git submodule update --init --recursive and python3 tools/verify_oem_wlan.py. The new CI compiles the same OEM Linux 5.10.81 kernel and module symbol table using the pinned Google Android Clang r614150, then attempts a strict build of Xiaomi QCACLD QCA6490. A pass of the source test is not a pass of the external-module compile. Display, Camera, MMRM, Audio and mobile networking sources remain pending release-matched Qualcomm revisions.
+
+We do not package modules into Android 17 vendor_dlkm before actual Module.symvers/vermagic/dependency and firmware validation. No FM radio or unrelated-device build target is selected.
+
+## Additional compiler compatibility correction (2026-11-11)
+
+In [run #43016121681](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/43016121681) the full OEM kernel and Qualcomm MMRM module built successfully. Xiaomi QCACLD stopped on `target_if_get_ctx()` in `qca-wifi-host-cmn/target_if/core/src/target_if_main.c`: Clang23 rejects an old-style empty-argument C function definition with `-Wstrict-prototypes`. The corresponding original `target_if.h` already declares `target_if_get_ctx(void)`. This change makes the definition match the declaration; it does not alter arguments, return type, function behavior, calling convention, or KMI.
+
+The single older `parser_api.h` array bound correction is retained. Both edits are verified against source Git blob SHA-1 before being applied to a disposable vendor checkout. No source is copied from LineageOS, no warning suppression and no changes to the OEM kernel.
+
+## Additional Clang23 enumeration type mismatch — htt_h2t.c
+
+The latest exact-OEM-kernel external WLAN CI [#43018421487](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/43018421487) passed the full OEM kernel and Qualcomm MMRM module but stopped compiling the original Xiaomi QCACLD at `core/dp/htt/htt_h2t.c` lines 631 and 647. The `htt_h2t_rx_ring_cfg_msg_hl` function returns `QDF_STATUS` but previously returned the incompatible `A_STATUS` enum constant `A_ERROR` in two allocation failure paths. The *same source file already uses* `QDF_STATUS_E_FAILURE` for identical failure paths in other `QDF_STATUS` functions. Preserve the complete error branches and replace **only those two return values** with `QDF_STATUS_E_FAILURE`. The patch verifier checks the pinned Xiaomi blob `b85f7c7a...` and exact count of two; no blanket `-Wno-error`, no unrelated code, and no kernel changes.
+
+## Qualcomm HIF NAPI feature guard (2026-11-11)
+
+[Full OEM module CI #43022139631](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/43022139631) verified OEM kernel+MMRM builds, then failed Xiaomi QCACLD at `qca-wifi-host-cmn/hif/src/hif_exec.c:1050`: `force_napi_complete` does not exist in `struct hif_exec_context` without `FEATURE_IRQ_AFFINITY`. Official Xiaomi `hif_exec.h` conditionally declares the member and `hif_exec.c` already includes `hif_init_force_napi_complete()`, a feature-guarded initializer. Eliminate only the duplicate, unguarded `qdf_atomic_init` immediately before the helper call. The helper initializes the field when it is present and is a no-op otherwise. The source-pinned patcher checks the original OEM blob and both guard definitions before it changes the disposable checkout. No Qualcomm/Xiaomi upstream submodule, kernel or external ABI is modified.
+
+## Qualcomm Copy Engine error-status compatibility (2026-11-11)
+
+The first completed full compile after the HIF NAPI correction, [run #43026300323](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/43026300323), passed the full Xiaomi OEM kernel, `Module.symvers` and the official Qualcomm MMRM external module. Xiaomi QCACLD then hit Clang23 `-Wimplicit-enum-enum-cast` at `qca-wifi-host-cmn/hif/src/ce/ce_main.c:2740`: `hif_send_head()` returns `QDF_STATUS` but the CE-handle-null branch returns a distinct `A_STATUS` constant, `A_ERROR`. This branch now returns `QDF_STATUS_E_FAILURE`, already used for failure cases in the same Qualcomm HIF source. Only this single, source-pinned branch is changed, without suppressing warnings or modifying the OEM kernel or any upstream repository. Rebuilding and firmware validation remain required.
+
+## Additional LLVM 23 and Qualcomm IRQ affinity fixes (2026-11-11)
+
+The [full push build #43049861536](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/43049861536) now **passes the isolated, signed Ubuntu 24.04 dependency installation**, full Xiaomi OEM `vmlinux/Image/modules` and official external Qualcomm MMRM compilation and ABI evidence gate. It then stops in Xiaomi WLAN:
+
+- `qca-wifi-host-cmn/hif/src/ce/ce_service_legacy.c:1320` — legacy empty-argument function definition `ce_services_legacy()` fails strict Clang 23 `-Wstrict-prototypes`. Define `ce_services_legacy(void)`; no code behavior or ABI changes.
+- `qca-wifi-host-cmn/hif/src/dispatcher/multibus_snoc.c:84` — SNOC assigns `hif_set_grp_intr_affinity` unconditionally even though Qualcomm's own `multibus.h` only declares the member with `FEATURE_IRQ_AFFINITY`. Qualcomm's `multibus.c` guards the same assignment correctly. Add the identical `#ifdef FEATURE_IRQ_AFFINITY` around the SNOC assignment, retaining it in configurations that enable the feature and avoiding access to an absent field otherwise.
+
+Both corrections validate the exact OEM Git blobs before touching the disposable checkout. They are **not** imports from LineageOS, driver rewrites or compiler-warning suppressions. Full QCACLD `.ko` compatibility is pending a new successful end-to-end build.

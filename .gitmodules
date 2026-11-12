@@ -1,0 +1,6 @@
+[submodule "upstream/xiaomi-wlan"]
+	path = upstream/xiaomi-wlan
+	url = https://github.com/MiCode/vendor_qcom_opensource_wlan.git
+[submodule "upstream/qualcomm/mmrm"]
+	path = upstream/qualcomm/mmrm
+	url = https://git.codelinaro.org/clo/la/platform/vendor/opensource/mmrm-driver.git

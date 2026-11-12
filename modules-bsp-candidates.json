@@ -4,7 +4,7 @@
   "android_base": "AOSP 17",
   "device": "mondrian",
   "soc": "SM8475",
-  "build_status": "not_buildable",
+  "build_status": "oem_kernel_mmrm_wlan_compile_pass_other_bsp_incomplete",
   "reference_module_source": {
     "repository": "LineageOS/android_kernel_xiaomi_sm8450-modules",
     "ref": "lineage-24.0",
@@ -69,5 +69,129 @@
       "kmi_qualified": false,
       "vendor_dlkm_packaged": false
     }
+  },
+  "selected_oem_source_candidates": {
+    "kernel": {
+      "repository": "MiCode/Xiaomi_Kernel_OpenSource",
+      "branch": "mondrian-s-oss",
+      "commit_sha": "989b27aa8391a2ede9b067b53877c4c3343955fe",
+      "module_list": "modules.list.msm.mondrian",
+      "module_list_blob_sha": "1ee612bfd4090af12f88629a66b069eec9192825"
+    },
+    "wlan": {
+      "repository": "MiCode/vendor_qcom_opensource_wlan",
+      "branch": "mondrian-s-oss",
+      "commit_sha": "334e5943b77af50dfd1fc7eb872a26b79ae5119f",
+      "source_subtrees": [
+        "qcacld-3.0",
+        "qca-wifi-host-cmn",
+        "fw-api"
+      ],
+      "optional_not_selected": [
+        "sigma-dut"
+      ],
+      "qcacld_kbuild_blob_sha": "8d8008766f4b9b38127eb0d8c52b44916d7e3c1e",
+      "qcacld_makefile_blob_sha": "0bd68093b19e9e7d8a3ccb3bbb1794b38870617b",
+      "status": "xiaomi_source_compiled_with_oem_kernel_llvm23_ci_43088150435"
+    },
+    "audio": {
+      "repository": "MiCode/vendor_qcom_opensource_audio-kernel",
+      "mondrian_s_oss_branch_exists": false,
+      "status": "qualcomm_release_matching_kernel_must_be_identified"
+    },
+    "missing_modules": {
+      "status": "Remaining Qualcomm BSP source selection and compatibility pending",
+      "categories": [
+        "Display",
+        "Camera",
+        "Video/CVP/EVA",
+        "IPA/RMNET",
+        "Audio"
+      ]
+    },
+    "selected_kernel": {
+      "repository": "PixelExperience-Reborn/android_kernel_xiaomi_sm8450",
+      "commit_sha": "2466406b9beac724960b0c88e6e794421d0466e7",
+      "version": "5.10.81"
+    },
+    "abi_verified": true,
+    "external_ko_compiled": true,
+    "vendor_dlkm_packaged": false,
+    "hardware_qualified": false
+  },
+  "qualcomm_official_candidates": {
+    "mmrm": {
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/mmrm-driver.git",
+      "tag": "VIDEO.LA.2.0.r1-10200-WAIPIO.0",
+      "commit_sha": "41774fa5be3d34ba35c2f929744f01c4494e7a99",
+      "status": "official_source_compiled_with_oem_kernel_llvm23_ci_43088150435"
+    },
+    "display": {
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/display-drivers.git",
+      "tag": "DISPLAY.LA.2.0.r1-13000-WAIPIO.0",
+      "commit_sha": "8889165ca06c36c2240d702494da7527941d38b1",
+      "status": "source_candidate_no_abi_qualification"
+    },
+    "camera": {
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/camera-kernel.git",
+      "tag": "CAMERA.LA.2.0.r1-11800-WAIPIO.0",
+      "commit_sha": "195bbfdc0a370dd61902b8039358cb9b14227361",
+      "status": "source_candidate_no_abi_qualification"
+    },
+    "video": {
+      "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/video-driver.git",
+      "tag": "VIDEO.LA.2.0.r1-10200-WAIPIO.0",
+      "commit_sha": "707fcdb08626667663d13cfceeb2d9dfe92893e3",
+      "status": "source_candidate_no_abi_qualification"
+    }
+  },
+  "wlan_runtime_closure": {
+    "kernel_commit": "2466406b9beac724960b0c88e6e794421d0466e7",
+    "kernel_source": "PixelExperience-Reborn/android_kernel_xiaomi_sm8450",
+    "external_module": "qca_cld3_qca6490.ko",
+    "external_qualcomm_module": "msm-mmrm.ko",
+    "direct_modinfo_dependencies": [
+      "icnss2",
+      "mi_cnss_statistic",
+      "cfg80211",
+      "cnss_prealloc",
+      "cnss_nl",
+      "cnss_utils"
+    ],
+    "oem_kernel_kbuild_sources": {
+      "icnss2": "drivers/soc/qcom/icnss2/Makefile",
+      "mi_cnss_statistic": "drivers/net/wireless/mi_cnss_statistic/Makefile",
+      "cfg80211": "net/wireless/Makefile",
+      "cnss_prealloc": "drivers/net/wireless/cnss_prealloc/Makefile",
+      "cnss_nl": "drivers/net/wireless/cnss_genl/Makefile",
+      "cnss_utils": "drivers/net/wireless/cnss_utils/Makefile"
+    },
+    "kconfig_required_module_symbols": [
+      "ICNSS2",
+      "MI_CNSS_STATISTIC",
+      "CFG80211",
+      "WCNSS_MEM_PRE_ALLOC",
+      "CNSS_GENL",
+      "CNSS_UTILS"
+    ],
+    "oem_modules_list_included_direct_dependencies": [
+      "cfg80211.ko"
+    ],
+    "closure_staging": "CI dependency-graph validation added; runtime boot partition selection not approved",
+    "staging_compiled": false,
+    "depmod_qualified": false,
+    "vendor_dlkm_packaged": false,
+    "hardware_loaded": false
+  },
+  "last_verified_build": {
+    "run_url": "https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/43088150435",
+    "run_id": 43088150435,
+    "head": "ae801df4a5fe8bb0c367c2df3c31a1dbaa49b773",
+    "kernel_llvm23_compiled": true,
+    "mmrm_compiled": true,
+    "wlan_compiled": true,
+    "source_abi_vermagic_qualified": true,
+    "vendor_dlkm_release_qualified": false,
+    "device_runtime_qualified": false
   }
 }

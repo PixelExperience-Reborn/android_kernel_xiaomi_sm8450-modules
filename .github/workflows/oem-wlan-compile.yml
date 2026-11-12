@@ -1,0 +1,175 @@
+name: Compile OEM Xiaomi WLAN against PE-Reborn mondrian kernel
+
+on:
+  push:
+    branches: [bringup/a17-mondrian-oem-bsp-20261111]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: mondrian-oem-external-wlan-build-${{ github.event_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Verify Xiaomi WLAN source and existing ABI contracts
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -v
+          python3 tools/verify_oem_wlan.py
+          python3 tools/apply_oem_wlan_fix.py
+          python3 tools/verify_qcom_mmrm.py
+          bash -n tools/install_ci_prerequisites.sh
+          bash tools/install_ci_prerequisites.sh --print-sources > /tmp/mondrian-apt-sources.list
+          grep -Fq 'https://archive.ubuntu.com/ubuntu' /tmp/mondrian-apt-sources.list
+          grep -Fq 'https://security.ubuntu.com/ubuntu' /tmp/mondrian-apt-sources.list
+          if grep -Fq 'azure.archive.ubuntu.com' /tmp/mondrian-apt-sources.list; then
+            echo '::error::Azure apt mirror must not be used'
+            exit 1
+          fi
+
+  external-wlan:
+    if: github.event_name != 'pull_request'
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450
+          ref: 2466406b9beac724960b0c88e6e794421d0466e7
+          path: kernel
+          persist-credentials: false
+      - name: Install signed Ubuntu 24.04 kernel build dependencies (no Azure mirror)
+        timeout-minutes: 13
+        run: bash tools/install_ci_prerequisites.sh
+      - name: Restore compiler cache
+        id: clang-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/google-clang
+          key: mondrian-a17-clang-r614150-c9ed23e2ba198658b630d4b10e09fa980cd43119
+      - name: Fetch exact Google Android LLVM23 compiler
+        if: steps.clang-cache.outputs.cache-hit != 'true'
+        run: bash kernel/tools/fetch_android_kernel_clang.sh /tmp/google-clang
+      - uses: actions/cache/save@v4
+        if: steps.clang-cache.outputs.cache-hit != 'true'
+        with:
+          path: /tmp/google-clang
+          key: mondrian-a17-clang-r614150-c9ed23e2ba198658b630d4b10e09fa980cd43119
+      - name: Generate the SAME OEM mondrian configuration as main kernel CI
+        run: |
+          set -euo pipefail
+          export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
+          export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+          test "$(git -C /tmp/google-clang rev-parse HEAD)" = c9ed23e2ba198658b630d4b10e09fa980cd43119
+          mkdir -p "$RUNNER_TEMP/mondrian-out"
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" gki_defconfig
+          bash kernel/scripts/kconfig/merge_config.sh -m -r \
+            -O "$RUNNER_TEMP/mondrian-out" \
+            "$RUNNER_TEMP/mondrian-out/.config" \
+            kernel/arch/arm64/configs/vendor/mondrian_GKI.config
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" olddefconfig
+          python3 kernel/tools/verify_mondrian_oem_eroFS.py \
+            --generated-config "$RUNNER_TEMP/mondrian-out/.config"
+      - name: Build full OEM vmlinux and in-tree modules first
+        run: |
+          set -euo pipefail
+          export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
+          export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" -j3 vmlinux Image modules
+          test -s "$RUNNER_TEMP/mondrian-out/Module.symvers"
+      - name: Apply reviewed Xiaomi WLAN header correction
+        run: |
+          set -euo pipefail
+          python3 tools/apply_oem_wlan_fix.py
+          python3 tools/apply_oem_wlan_fix.py --apply
+          grep -F 'uint8_t mdie[SIR_MDIE_SIZE]);' upstream/xiaomi-wlan/qcacld-3.0/core/mac/src/include/parser_api.h
+      - name: Build Qualcomm official MMRM against selected OEM Module.symvers
+        run: |
+          set -euo pipefail
+          export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
+          export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+          mmrm="$GITHUB_WORKSPACE/upstream/qualcomm/mmrm"
+          # Qualcomm's top-level MMRM Kbuild also descends into test/,
+          # which has no Makefile in this pinned upstream tag. Compile only
+          # the production driver/Kbuild, preserving the original sources.
+          test -f "$mmrm/driver/Kbuild"
+          test -f "$mmrm/config/waipiommrmconf.h"
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" -j3 \
+            M="$mmrm/driver" MMRM_ROOT="$mmrm" CONFIG_MSM_MMRM=y \
+            KCFLAGS="-include $mmrm/config/waipiommrmconf.h" modules
+          module="$mmrm/driver/msm-mmrm.ko"
+          test -s "$module"
+          modinfo -F vermagic "$module"
+          python3 tools/verify_external_module_abi.py \
+            --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
+            --module "$module" --out "$RUNNER_TEMP/mmrm-abi-evidence.json"
+          echo "[PASS] Qualcomm official MMRM compiled against OEM kernel symbols" >> "$GITHUB_STEP_SUMMARY"
+          echo "[PENDING] Qualcomm display/camera/audio users and hardware validation" >> "$GITHUB_STEP_SUMMARY"
+      - name: Build Xiaomi QCACLD QCA6490 as external kernel module
+        run: |
+          set -euo pipefail
+          export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
+          export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+          vendor_root="$GITHUB_WORKSPACE/upstream/xiaomi-wlan"
+          wlan_root="$vendor_root/qcacld-3.0"
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" -j3 \
+            M="$wlan_root" WLAN_ROOT="$wlan_root" \
+            WLAN_COMMON_INC="$vendor_root/qca-wifi-host-cmn" \
+            WLAN_FW_API="$vendor_root/fw-api" \
+            WLAN_PROFILE=qca6490 DEVNAME=qca6490 MODNAME=qca_cld3_qca6490 \
+            CONFIG_QCA_CLD_WLAN=m CONFIG_QCA_WIFI_ISOC=0 CONFIG_QCA_WIFI_2_0=1 \
+            modules
+          module="$wlan_root/qca_cld3_qca6490.ko"
+          test -s "$module"
+          modinfo -F vermagic "$module"
+          modinfo -F depends "$module"
+          python3 tools/verify_external_module_abi.py \
+            --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
+            --module "$module" --out "$RUNNER_TEMP/wlan-abi-evidence.json"
+          echo "[PASS] Xiaomi QCACLD compiled against own kernel Module.symvers" >> "$GITHUB_STEP_SUMMARY"
+          echo "[PENDING] WLAN firmware, vendor_dlkm integration, hardware boot" >> "$GITHUB_STEP_SUMMARY"
+      - name: Stage Xiaomi WLAN kernel dependency closure and verify load order
+        run: |
+          set -euo pipefail
+          python3 tools/stage_mondrian_wlan_kmi.py \
+            --kernel kernel \
+            --kernel-out "$RUNNER_TEMP/mondrian-out" \
+            --wlan "$GITHUB_WORKSPACE/upstream/xiaomi-wlan/qcacld-3.0/qca_cld3_qca6490.ko" \
+            --mmrm "$GITHUB_WORKSPACE/upstream/qualcomm/mmrm/driver/msm-mmrm.ko" \
+            --out "$RUNNER_TEMP/mondrian-stage"
+          cat "$RUNNER_TEMP/mondrian-stage/mondrian-wlan-diagnostic-manifest.json" \
+            >> "$GITHUB_STEP_SUMMARY"
+      - name: Save diagnostic ABI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mondrian-oem-wlan-kmi-diagnostics
+          if-no-files-found: ignore
+          retention-days: 5
+          path: |
+            /tmp/mondrian-out/.config
+            /tmp/mondrian-out/Module.symvers
+            upstream/xiaomi-wlan/qcacld-3.0/*.ko
+            upstream/qualcomm/mmrm/driver/*.ko
+            /home/runner/work/_temp/mmrm-abi-evidence.json
+            /home/runner/work/_temp/wlan-abi-evidence.json
+            /tmp/wlan-abi-evidence.json
+            ${{ runner.temp }}/mondrian-stage/mondrian-wlan-diagnostic-manifest.json
+            ${{ runner.temp }}/mondrian-stage/lib/modules/**/modules.dep
+            ${{ runner.temp }}/mondrian-stage/lib/modules/**/kernel/**/*.ko
+            ${{ runner.temp }}/mondrian-stage/lib/modules/**/extra/*.ko
