@@ -39,6 +39,24 @@ def verify_kernel_revision(kernel, expected):
     return actual
 
 
+def checked_stage_directory(destination, sources):
+    """Require a fresh diagnostic directory disjoint from all source inputs.
+
+    The stage is never a reason to recursively delete existing data, even
+    when a caller accidentally supplies a kernel checkout or build directory.
+    """
+    requested = Path(destination).expanduser()
+    if requested.exists() or requested.is_symlink():
+        raise ValueError(f"refusing to overwrite existing staging destination: {requested}")
+    stage = requested.resolve()
+    for source in sources:
+        input_path = Path(source).resolve()
+        if (stage == input_path or stage in input_path.parents or
+                input_path in stage.parents):
+            raise ValueError(f"staging destination overlaps kernel/module input: {stage}")
+    return stage
+
+
 def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -152,9 +170,14 @@ def main():
     roots = (mmrm_name, wlan_name) + ((display_name,) if display_name else ())
     order = compute_closure(roots, files)
 
-    dest = args.out.resolve()
-    if dest.exists():
-        shutil.rmtree(dest)
+    try:
+        dest = checked_stage_directory(
+            args.out, (kernel, kout, Path(__file__).resolve().parents[1],
+                       wlan.parent, mmrm.parent,
+                       *((display.parent,) if display is not None else ())))
+    except ValueError as error:
+        p.error(str(error))
+    dest.mkdir(parents=True, exist_ok=False)
     module_root = dest / "lib/modules" / release
     mapping = {}
     for name in order:
