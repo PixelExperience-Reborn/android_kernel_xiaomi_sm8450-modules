@@ -108,6 +108,52 @@ class ModuleStagingTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "missing: msm_mmrm"):
                 module.compute_closure(("msm_drm",), files)
 
+    def test_stage_refuses_to_delete_existing_diagnostic_data(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            kernel = root / "kernel"
+            kernel.mkdir()
+            stage = root / "stage"
+            stage.mkdir()
+            sentinel = stage / "valuable-evidence.json"
+            sentinel.write_text("do not erase")
+            with self.assertRaisesRegex(ValueError, "refusing to overwrite"):
+                module.checked_stage_directory(stage, (kernel,))
+            self.assertEqual(sentinel.read_text(), "do not erase")
+
+    def test_stage_refuses_destination_inside_oem_sources(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            kernel = root / "kernel"
+            kernel.mkdir()
+            with self.assertRaisesRegex(ValueError, "overlaps"):
+                module.checked_stage_directory(kernel / "new-stage", (kernel,))
+
+    def test_stage_rejects_existing_symlink_alias(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "kernel"
+            source.mkdir()
+            alias = root / "alias"
+            alias.symlink_to(source, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, "refusing to overwrite"):
+                module.checked_stage_directory(alias, (source,))
+            self.assertTrue(source.is_dir())
+
+    def test_stage_accepts_fresh_disjoint_destination(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            kernel = root / "kernel"
+            kernel.mkdir()
+            kernel_out = root / "kernel-out"
+            kernel_out.mkdir()
+            stage = root / "stage"
+            self.assertEqual(
+                module.checked_stage_directory(stage, (kernel, kernel_out)),
+                stage,
+            )
+            self.assertFalse(stage.exists())
+
     def test_config_parser(self):
         with tempfile.TemporaryDirectory() as root:
             p = Path(root) / ".config"
