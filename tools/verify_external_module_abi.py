@@ -3,8 +3,12 @@
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import subprocess
+
+DEFAULT_KERNEL_COMMIT = "2466406b9beac724960b0c88e6e794421d0466e7"
+
 
 def command(args):
     return subprocess.check_output(args, text=True).strip()
@@ -15,14 +19,18 @@ def main():
     p.add_argument("--kernel-out", type=Path, required=True)
     p.add_argument("--module", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--expected-kernel-commit", default=DEFAULT_KERNEL_COMMIT,
+                   help="Explicit 40-hex SHA of the checked-out kernel; defaults to the qualified OEM-only source")
     args = p.parse_args()
     kernel = args.kernel.resolve()
     output = args.kernel_out.resolve()
     module = args.module.resolve()
-    if command(["git", "-C", str(kernel), "rev-parse", "HEAD"]) != (
-        "2466406b9beac724960b0c88e6e794421d0466e7"
-    ):
-        p.error("kernel commit drift")
+    expected = args.expected_kernel_commit
+    if re.fullmatch(r"[0-9a-f]{40}", expected) is None:
+        p.error("expected kernel commit must be an exact lowercase 40-hex SHA")
+    kernel_commit = command(["git", "-C", str(kernel), "rev-parse", "HEAD"])
+    if kernel_commit != expected:
+        p.error(f"kernel commit drift: expected {expected}, got {kernel_commit}")
     for file in (output / "vmlinux", output / "Module.symvers",
                  output / ".config", module):
         if not file.is_file() or file.stat().st_size == 0:
@@ -43,7 +51,7 @@ def main():
         return hashlib.sha256(path.read_bytes()).hexdigest()
     evidence = {
         "device": "mondrian",
-        "kernel_commit": "2466406b9beac724960b0c88e6e794421d0466e7",
+        "kernel_commit": kernel_commit,
         "kernelrelease": version,
         "module": module.name,
         "vermagic": vermagic,
