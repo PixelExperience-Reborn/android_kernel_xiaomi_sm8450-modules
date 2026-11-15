@@ -8,6 +8,7 @@ Android product image or claim hardware bootability.
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -26,6 +27,16 @@ REQUIRED_CONFIG = (
 
 def command(argv):
     return subprocess.check_output(list(map(str, argv)), text=True).strip()
+
+
+def verify_kernel_revision(kernel, expected):
+    """Refuse unreviewed kernel revisions, including ambiguous symbolic refs."""
+    if re.fullmatch(r"[0-9a-f]{40}", expected) is None:
+        raise ValueError("Expected kernel revision must be a lowercase 40-hex SHA")
+    actual = command(["git", "-C", kernel, "rev-parse", "HEAD"])
+    if actual != expected:
+        raise ValueError(f"Kernel revision drift: expected {expected}, got {actual}")
+    return actual
 
 
 def sha256(path):
@@ -86,10 +97,14 @@ def main():
     p.add_argument("--wlan", type=Path, required=True)
     p.add_argument("--mmrm", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--expected-kernel-commit", default=KERNEL_SHA,
+                   help="Exact checked-out kernel SHA (defaults to reviewed OEM-only commit)")
     args = p.parse_args()
     kernel, kout = args.kernel.resolve(), args.kernel_out.resolve()
-    if command(["git", "-C", kernel, "rev-parse", "HEAD"]) != KERNEL_SHA:
-        p.error("Kernel revision does not match approved Xiaomi OEM revision")
+    try:
+        kernel_sha = verify_kernel_revision(kernel, args.expected_kernel_commit)
+    except ValueError as error:
+        p.error(str(error))
     if not (kout / "Module.symvers").is_file() or not (kout / "vmlinux").is_file():
         p.error("Missing fully compiled OEM vmlinux and Module.symvers")
     config = parse_config(kout / ".config")
@@ -170,7 +185,7 @@ def main():
                 ", ".join(sorted(unexpected)))
     manifest = {
         "device": "mondrian",
-        "kernel_commit": KERNEL_SHA,
+        "kernel_commit": kernel_sha,
         "kernel_release": release,
         "module_symvers_sha256": sha256(kout / "Module.symvers"),
         "staged_module_order": order,
