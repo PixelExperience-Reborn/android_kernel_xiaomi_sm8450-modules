@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage exact mondrian WLAN/MRR M runtime dependency closure as diagnostic modules.
+"""Stage exact mondrian WLAN/MMRM/Display module dependency closure as diagnostic modules.
 
 Uses only Xiaomi's compiled OEM kernel modules and pinned Qualcomm MMRM/WLAN
 outputs. Refuses absent/duplicate module dependencies. Does not build an
@@ -212,7 +212,9 @@ def main():
         "modprobe_mmrm_insmod_order": checked_mmrm,
         "modprobe_display_insmod_order": checked_display,
         "display_module_included": display is not None,
-        "both_root_dry_run_union_matches_staged_closure": True,
+        "both_root_dry_run_union_matches_staged_closure": display is None,
+        "all_root_dry_run_union_matches_staged_closure": True,
+        "checked_module_roots": list(roots),
         "compiled_and_dependency_closure_checked": True,
         "release_vendor_dlkm_packaging": False,
         "firmware_verified": False,

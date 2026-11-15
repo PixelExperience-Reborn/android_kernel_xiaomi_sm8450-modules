@@ -66,7 +66,7 @@ def main():
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(evidence, indent=2) + "\n")
-    print("[PASS] External QCACLD .ko, AArch64 ELF and exact OEM vermagic")
+    print(f"[PASS] {module.name}: exact kernel SHA, AArch64 ELF, license and vermagic")
     print("[PENDING] Firmware and device integration")
 
 if __name__ == "__main__":
