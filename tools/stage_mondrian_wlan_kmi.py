@@ -78,6 +78,26 @@ def insmod_basenames(commands):
             for row in commands if row.startswith("insmod ")}
 
 
+
+def verify_oem_diagnostic_roots(basenames, compiled_by_basename, occupied_roots):
+    """Select only existing OEM .ko files for extra diagnostic load checks.
+
+    These independent roots are NOT an Android vendor_dlkm load list.
+    """
+    roots = []
+    for basename in basenames:
+        if not re.fullmatch(r"[A-Za-z0-9_+.-]+[.]ko", basename) or "/" in basename or ".." in basename:
+            raise ValueError("invalid OEM diagnostic module basename: " + repr(basename))
+        path = compiled_by_basename.get(basename)
+        if path is None:
+            raise ValueError("required OEM diagnostic module is not compiled: " + basename)
+        name = module_name(path)
+        if name in occupied_roots or name in roots:
+            raise ValueError("duplicate/colliding OEM diagnostic root: " + name)
+        roots.append(name)
+    return tuple(roots)
+
+
 def parse_config(path):
     return {row.split("=", 1)[0]: row.split("=", 1)[1]
             for row in path.read_text().splitlines()
@@ -116,6 +136,8 @@ def main():
     p.add_argument("--mmrm", type=Path, required=True)
     p.add_argument("--display", type=Path,
                    help="Optional Qualcomm msm_drm.ko built for this exact kernel; fail closed on its dependencies")
+    p.add_argument("--audit-oem-root", action="append", default=[], metavar="BASENAME.ko",
+                   help="Independently verify one compiled OEM module's diagnostic depmod closure")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--expected-kernel-commit", default=KERNEL_SHA,
                    help="Exact checked-out kernel SHA (defaults to reviewed OEM-only commit)")
@@ -134,11 +156,15 @@ def main():
     release = command(["make", "-s", "-C", kernel, f"O={kout}", "kernelrelease"])
 
     files = {}
+    oem_by_basename = {}
     for path in sorted(kout.rglob("*.ko")):
         name = module_name(path)
         if name in files:
             p.error(f"Ambiguous compiled OEM module {name}: {path} and {files[name]}")
+        if path.name in oem_by_basename:
+            p.error("Duplicate compiled OEM module filename: " + path.name)
         files[name] = path
+        oem_by_basename[path.name] = path
     wlan, mmrm = args.wlan.resolve(), args.mmrm.resolve()
     display = args.display.resolve() if args.display is not None else None
     external_modules = (wlan, mmrm) + ((display,) if display is not None else ())
@@ -167,7 +193,13 @@ def main():
     if not ROOT_WLAN_DEPS.issubset(present):
         p.error("WLAN direct dependencies differ from audited OEM contract: " +
                 ", ".join(sorted(present)))
-    roots = (mmrm_name, wlan_name) + ((display_name,) if display_name else ())
+    initial_roots = (mmrm_name, wlan_name) + ((display_name,) if display_name else ())
+    try:
+        audited_roots = verify_oem_diagnostic_roots(
+            args.audit_oem_root, oem_by_basename, set(initial_roots))
+    except ValueError as error:
+        p.error(str(error))
+    roots = initial_roots + audited_roots
     order = compute_closure(roots, files)
 
     try:
@@ -208,6 +240,11 @@ def main():
     checked_display = (command(["modprobe", "-d", dest, "-S", release,
                                 "--show-depends", display_name]).splitlines()
                        if display_name else [])
+    checked_oem = {
+        root: command(["modprobe", "-d", dest, "-S", release,
+                       "--show-depends", root]).splitlines()
+        for root in audited_roots
+    }
     expected = {Path(s).name for s in mapping.values()}
     wlan_actual = insmod_basenames(checked_wlan)
     mmrm_actual = insmod_basenames(checked_mmrm)
@@ -217,6 +254,11 @@ def main():
     if display is not None and display.name not in display_actual:
         p.error("modprobe dry-run omitted the selected Qualcomm Display root")
     actual = wlan_actual | mmrm_actual | display_actual
+    for root, dry_run in checked_oem.items():
+        loaded = insmod_basenames(dry_run)
+        if files[root].name not in loaded:
+            p.error("modprobe dry-run omitted critical OEM root: " + root)
+        actual.update(loaded)
     missing = expected - actual
     unexpected = actual - expected
     if missing or unexpected:
@@ -234,6 +276,9 @@ def main():
         "modprobe_wlan_insmod_order": checked_wlan,
         "modprobe_mmrm_insmod_order": checked_mmrm,
         "modprobe_display_insmod_order": checked_display,
+        "audited_oem_roots": list(audited_roots),
+        "modprobe_oem_diagnostic_roots": checked_oem,
+        "production_boot_load_order_qualified": False,
         "display_module_included": display is not None,
         "both_root_dry_run_union_matches_staged_closure": display is None,
         "all_root_dry_run_union_matches_staged_closure": True,
@@ -247,7 +292,7 @@ def main():
         json.dumps(manifest, indent=2) + "\n"
     )
     print("[PASS] Exact kernel WLAN/MMRM" + ("/Display" if display is not None else "") +
-          " depmod+modprobe dependency closure verified")
+          f" plus {len(audited_roots)} OEM diagnostic root(s) depmod+modprobe closure verified")
     print("[PENDING] Firmware, partition selection, SELinux, real hardware boot")
 
 
