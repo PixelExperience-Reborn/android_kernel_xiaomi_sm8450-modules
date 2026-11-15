@@ -96,6 +96,8 @@ def main():
     p.add_argument("--kernel-out", type=Path, required=True)
     p.add_argument("--wlan", type=Path, required=True)
     p.add_argument("--mmrm", type=Path, required=True)
+    p.add_argument("--display", type=Path,
+                   help="Optional Qualcomm msm_drm.ko built for this exact kernel; fail closed on its dependencies")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--expected-kernel-commit", default=KERNEL_SHA,
                    help="Exact checked-out kernel SHA (defaults to reviewed OEM-only commit)")
@@ -120,9 +122,12 @@ def main():
             p.error(f"Ambiguous compiled OEM module {name}: {path} and {files[name]}")
         files[name] = path
     wlan, mmrm = args.wlan.resolve(), args.mmrm.resolve()
-    if not wlan.is_file() or not mmrm.is_file():
-        p.error("External Xiaomi WLAN and Qualcomm MMRM .ko must be compiled first")
-    for external in (wlan, mmrm):
+    display = args.display.resolve() if args.display is not None else None
+    external_modules = (wlan, mmrm) + ((display,) if display is not None else ())
+    for external in external_modules:
+        if not external.is_file():
+            p.error(f"External module must be compiled before staging: {external}")
+    for external in external_modules:
         name = module_name(external)
         if name in files:
             p.error(f"External module collides with OEM in-tree module: {name}")
@@ -133,13 +138,19 @@ def main():
 
     wlan_name = module_name(wlan)
     mmrm_name = module_name(mmrm)
+    display_name = module_name(display) if display is not None else None
+    if mmrm_name != "msm_mmrm":
+        p.error(f"Unexpected Qualcomm MMRM module: {mmrm_name}")
+    if display is not None and display_name != "msm_drm":
+        p.error(f"Unexpected Qualcomm Display module: {display_name}")
     if wlan_name != "qca_cld3_qca6490":
         p.error(f"Unexpected Xiaomi WLAN kernel module name: {wlan_name}")
     present = frozenset(dependencies(wlan))
     if not ROOT_WLAN_DEPS.issubset(present):
         p.error("WLAN direct dependencies differ from audited OEM contract: " +
                 ", ".join(sorted(present)))
-    order = compute_closure((mmrm_name, wlan_name), files)
+    roots = (mmrm_name, wlan_name) + ((display_name,) if display_name else ())
+    order = compute_closure(roots, files)
 
     dest = args.out.resolve()
     if dest.exists():
@@ -148,7 +159,7 @@ def main():
     mapping = {}
     for name in order:
         original = files[name]
-        if original == wlan or original == mmrm:
+        if original in external_modules:
             target = module_root / "extra" / original.name
         else:
             target = module_root / "kernel" / original.relative_to(kout)
@@ -171,12 +182,18 @@ def main():
                             "--show-depends", wlan_name]).splitlines()
     checked_mmrm = command(["modprobe", "-d", dest, "-S", release,
                             "--show-depends", mmrm_name]).splitlines()
+    checked_display = (command(["modprobe", "-d", dest, "-S", release,
+                                "--show-depends", display_name]).splitlines()
+                       if display_name else [])
     expected = {Path(s).name for s in mapping.values()}
     wlan_actual = insmod_basenames(checked_wlan)
     mmrm_actual = insmod_basenames(checked_mmrm)
+    display_actual = insmod_basenames(checked_display)
     if wlan.name not in wlan_actual or mmrm.name not in mmrm_actual:
         p.error("modprobe dry-run omitted the selected WLAN or MMRM root")
-    actual = wlan_actual | mmrm_actual
+    if display is not None and display.name not in display_actual:
+        p.error("modprobe dry-run omitted the selected Qualcomm Display root")
+    actual = wlan_actual | mmrm_actual | display_actual
     missing = expected - actual
     unexpected = actual - expected
     if missing or unexpected:
@@ -193,6 +210,8 @@ def main():
         "sha256": {name: sha256(files[name]) for name in order},
         "modprobe_wlan_insmod_order": checked_wlan,
         "modprobe_mmrm_insmod_order": checked_mmrm,
+        "modprobe_display_insmod_order": checked_display,
+        "display_module_included": display is not None,
         "both_root_dry_run_union_matches_staged_closure": True,
         "compiled_and_dependency_closure_checked": True,
         "release_vendor_dlkm_packaging": False,
@@ -202,7 +221,8 @@ def main():
     (dest / "mondrian-wlan-diagnostic-manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n"
     )
-    print("[PASS] All OEM WLAN dependencies present; depmod+modprobe closure verified")
+    print("[PASS] Exact kernel WLAN/MMRM" + ("/Display" if display is not None else "") +
+          " depmod+modprobe dependency closure verified")
     print("[PENDING] Firmware, partition selection, SELinux, real hardware boot")
 
 
