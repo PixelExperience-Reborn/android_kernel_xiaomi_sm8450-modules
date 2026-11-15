@@ -69,6 +69,19 @@ class ModuleStagingTests(unittest.TestCase):
             {"cfg80211.ko", "icnss2.ko", "qca_cld3_qca6490.ko"},
         )
 
+    def test_staging_explicit_kernel_pin_is_exact(self):
+        oem = module.KERNEL_SHA
+        merged = "69c3911404debdfab1eb484aaa626b319b9d93d7"
+        with patch.object(module, "command", return_value=merged):
+            self.assertEqual(
+                module.verify_kernel_revision(Path("/fake/kernel"), merged), merged)
+            with self.assertRaisesRegex(ValueError, "Kernel revision drift"):
+                module.verify_kernel_revision(Path("/fake/kernel"), oem)
+            for invalid in ("HEAD", "", "g" * 40, "a" * 39):
+                with self.subTest(ref=invalid):
+                    with self.assertRaisesRegex(ValueError, "40-hex"):
+                        module.verify_kernel_revision(Path("/fake/kernel"), invalid)
+
     def test_config_parser(self):
         with tempfile.TemporaryDirectory() as root:
             p = Path(root) / ".config"
