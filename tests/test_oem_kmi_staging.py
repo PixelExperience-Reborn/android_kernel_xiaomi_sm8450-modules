@@ -154,6 +154,45 @@ class ModuleStagingTests(unittest.TestCase):
             )
             self.assertFalse(stage.exists())
 
+    def test_extra_oem_root_checked_by_compiled_filename(self):
+        compiled = {
+            "goodix_core.ko": Path("goodix_core.ko"),
+            "dispcc-waipio.ko": Path("dispcc-waipio.ko"),
+        }
+        with patch.object(module, "module_name",
+                          side_effect=lambda path: path.stem.replace("-", "_")):
+            roots = module.verify_oem_diagnostic_roots(
+                ["goodix_core.ko", "dispcc-waipio.ko"], compiled, {"msm_drm"})
+            self.assertEqual(roots, ("goodix_core", "dispcc_waipio"))
+
+    def test_extra_oem_root_missing_or_unsafe_fails_closed(self):
+        with patch.object(module, "module_name", return_value="goodix_core"):
+            for invalid in ("../goodix_core.ko", "/tmp/module.ko",
+                            "goodix_core.o", "unknown.ko"):
+                with self.subTest(value=invalid):
+                    with self.assertRaises(ValueError):
+                        module.verify_oem_diagnostic_roots(
+                            [invalid], {"goodix_core.ko": Path("goodix_core.ko")}, set())
+
+    def test_extra_oem_root_collision_or_duplicate_fails_closed(self):
+        compiled = {"goodix_core.ko": Path("goodix_core.ko")}
+        with patch.object(module, "module_name", return_value="goodix_core"):
+            with self.assertRaisesRegex(ValueError, "colliding"):
+                module.verify_oem_diagnostic_roots(
+                    ["goodix_core.ko"], compiled, {"goodix_core"})
+            with self.assertRaisesRegex(ValueError, "colliding"):
+                module.verify_oem_diagnostic_roots(
+                    ["goodix_core.ko", "goodix_core.ko"], compiled, set())
+
+    def test_oem_roots_are_diagnostic_not_a_shipping_load_list(self):
+        with patch.object(module, "dependencies", return_value=[]):
+            files = {"goodix_core": Path("goodix_core.ko"),
+                     "msm_drm": Path("msm_drm.ko")}
+            self.assertEqual(
+                module.compute_closure(("msm_drm", "goodix_core"), files),
+                ["msm_drm", "goodix_core"],
+            )
+
     def test_config_parser(self):
         with tempfile.TemporaryDirectory() as root:
             p = Path(root) / ".config"
