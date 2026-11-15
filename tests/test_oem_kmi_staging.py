@@ -82,6 +82,32 @@ class ModuleStagingTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, "40-hex"):
                         module.verify_kernel_revision(Path("/fake/kernel"), invalid)
 
+    def test_three_independent_wlan_mmrm_display_roots(self):
+        files = {name: Path(name + ".ko") for name in
+                 ("qca_cld3_qca6490", "msm_mmrm", "msm_drm",
+                  "cfg80211", "qcom_display_notifier")}
+        graph = {
+            "qca_cld3_qca6490": ["cfg80211"],
+            "msm_mmrm": [],
+            "msm_drm": ["msm_mmrm", "qcom_display_notifier"],
+            "cfg80211": [],
+            "qcom_display_notifier": [],
+        }
+        with patch.object(module, "dependencies",
+                          side_effect=lambda p: graph[p.stem]):
+            order = module.compute_closure(
+                ("msm_mmrm", "qca_cld3_qca6490", "msm_drm"), files)
+        self.assertEqual(set(order), set(files))
+        self.assertLess(order.index("msm_mmrm"), order.index("msm_drm"))
+        self.assertLess(order.index("cfg80211"), order.index("qca_cld3_qca6490"))
+        self.assertLess(order.index("qcom_display_notifier"), order.index("msm_drm"))
+
+    def test_display_missing_dependency_must_fail_not_fake_stub(self):
+        files = {"msm_drm": Path("msm_drm.ko")}
+        with patch.object(module, "dependencies", return_value=["msm_mmrm"]):
+            with self.assertRaisesRegex(RuntimeError, "missing: msm_mmrm"):
+                module.compute_closure(("msm_drm",), files)
+
     def test_config_parser(self):
         with tempfile.TemporaryDirectory() as root:
             p = Path(root) / ".config"
