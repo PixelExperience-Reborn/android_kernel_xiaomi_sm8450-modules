@@ -25,3 +25,28 @@ suppressing failures or using another ROM's source. After compile, establish
 mondrian OEM sensor topology, Qualcomm HAL compatibility and physical runtime.
 No production vendor_dlkm/modules.load, boot.img, dtbo.img, HAL, or hardware
 qualification is asserted by this document.
+
+## 16 Nov 2026 — separate OEM Camera compilation diagnostic
+
+The previous source-only MiCode yudi SM8475 Camera audit finished SUCCESS:
+https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/43929588930 .
+A distinct \`xiaomi-camera-compile-abi.yml\` workflow now attempts to compile
+the unmodified manufacturer \`camera.ko\` and \`cameralog.ko\` using:
+
+- kernel PixelExperience-Reborn/android_kernel_xiaomi_sm8450 at
+  \`032260f7c8dacf338e1ac993e1653cd1982877d1\` (Xiaomi OEM 5.10.81);
+- original MiCode Camera tree \`yudi-t-oss\` commit
+  \`9ed4ce96d49c0759c6365627113c5f59c2407942\`;
+- exactly the same Google Android clang-r614150 / LLVM23, OEM
+  \`mondrian_GKI.config\` and full built \`vmlinux\` / \`Module.symvers\`;
+- pinned existing Qualcomm MMRM production driver and its exported symbols.
+
+Compilation errors are not suppressed and full compiler diagnostics are
+retained for inspection. The release manifest, \`modules.load\`, Kernel and
+Devicetrees source, \`seventeen\` branches, Camera HAL and panel hardware
+are not changed. Successful CI would prove only static compilation/ABI,
+**not** that yudi camera firmware/sensors work on mondrian.
+
+On failure the next action is to fix the *specific* incompatibility in
+reviewed Xiaomi/Qualcomm code; do not replace the entire OEM base,
+drop functional drivers, or import code from LineageOS.
