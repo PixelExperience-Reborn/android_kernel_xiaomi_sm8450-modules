@@ -56,7 +56,7 @@ class XiaomiCameraClang23Tests(unittest.TestCase):
         flash = (
             patch.FLASH_GPIO_CONTRACT + b"\n"
             + b"\n".join(
-                b" ".join((signature.rstrip(b"\n"), call))
+                signature + call
                 for signature, call in zip(
                     patch.FLASH_SIGNATURES, patch.FLASH_CALLS
                 )
