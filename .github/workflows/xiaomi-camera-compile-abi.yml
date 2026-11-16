@@ -118,7 +118,7 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_xiaomi_camera_clang23_fix.py' -v
           python3 tools/apply_xiaomi_camera_clang23_fix.py --source xiaomi-camera-source
-      - name: Adapt one original Xiaomi Camera C prototype to LLVM23
+      - name: Apply four byte-exact Xiaomi Camera no-argument prototypes for LLVM23
         run: |
           set -euo pipefail
           python3 tools/apply_xiaomi_camera_clang23_fix.py \
@@ -126,8 +126,17 @@ jobs:
             --evidence camera-clang23-fix-evidence.json
           git -C xiaomi-camera-source diff --check
           git -C xiaomi-camera-source diff -- drivers/cam_utils/cam_debug_util.c
+          git -C xiaomi-camera-source diff -- drivers/cam_sensor_module/cam_flash/cam_flash_dev.c
           grep -Fq 'const struct camera_debug_settings *cam_debug_get_settings(void)' \
             xiaomi-camera-source/drivers/cam_utils/cam_debug_util.c
+          grep -Fq 'static int cam_flash_i2c_driver_powerup(void)' \
+            xiaomi-camera-source/drivers/cam_sensor_module/cam_flash/cam_flash_dev.c
+          grep -Fq 'static int cam_flash_i2c_driver_powerdown(void)' \
+            xiaomi-camera-source/drivers/cam_sensor_module/cam_flash/cam_flash_dev.c
+          grep -Fq 'static void cam_flash_i2c_driver_deinit_kobject(void)' \
+            xiaomi-camera-source/drivers/cam_sensor_module/cam_flash/cam_flash_dev.c
+          grep -Fq '#define I2C_FLASH_GPIO_EN 356' \
+            xiaomi-camera-source/drivers/cam_sensor_module/cam_flash/cam_flash_dev.c
       - name: Compile original Xiaomi camera.ko and cameralog.ko with MMRM symbols
         run: |
           set -euo pipefail

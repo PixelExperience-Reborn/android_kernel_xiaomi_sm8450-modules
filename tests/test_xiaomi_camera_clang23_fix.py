@@ -34,10 +34,51 @@ class XiaomiCameraClang23Tests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     patch.patch_definition(candidate, self.header)
 
+    def test_exact_three_flash_prototype_fixes(self):
+        flash = (
+            b"#define I2C_FLASH_GPIO_EN 356\n"
+            + b"{\n" + patch.FLASH_SIGNATURES[0] +
+              b"{ return 0; }\n\tret = " + patch.FLASH_CALLS[0] + b"\n"
+            + patch.FLASH_SIGNATURES[1] +
+              b"{ return 0; }\n\tret = " + patch.FLASH_CALLS[1] + b"\n"
+            + patch.FLASH_SIGNATURES[2] +
+              b"{ return; }\n\t" + patch.FLASH_CALLS[2] + b"\n}\n"
+        )
+        patched = patch.patch_flash_definitions(flash)
+        for signature in patch.FLASH_SIGNATURES:
+            self.assertNotIn(signature, patched)
+            self.assertIn(signature.replace(b"()\\n", b"(void)\\n"), patched)
+        for call in patch.FLASH_CALLS:
+            self.assertEqual(patched.count(call), 1)
+        self.assertEqual(patched.count(patch.FLASH_GPIO_CONTRACT), 1)
+
+    def test_flash_fails_closed_on_missing_or_duplicate_definitions(self):
+        flash = (
+            patch.FLASH_GPIO_CONTRACT + b"\n"
+            + b"\n".join(
+                b" ".join((signature.rstrip(b"\n"), call))
+                for signature, call in zip(
+                    patch.FLASH_SIGNATURES, patch.FLASH_CALLS
+                )
+            ) + b"\n"
+        )
+        patch.patch_flash_definitions(flash)
+        for signature in patch.FLASH_SIGNATURES:
+            for bad in (flash.replace(signature, b""),
+                        flash + signature):
+                with self.subTest(signature=signature, bad=bad[-40:]):
+                    with self.assertRaises(ValueError):
+                        patch.patch_flash_definitions(bad)
+        with self.assertRaisesRegex(ValueError, "GPIO"):
+            patch.patch_flash_definitions(
+                flash.replace(patch.FLASH_GPIO_CONTRACT, b""))
+
     def test_immutable_oem_blob_pins(self):
         self.assertEqual(len(patch.OEM_COMMIT), 40)
         self.assertEqual(len(patch.SOURCE_BLOB), 40)
         self.assertEqual(len(patch.HEADER_BLOB), 40)
+        self.assertEqual(patch.FLASH_BLOB,
+                         "3a7514facf01022e628e2e59613fd980978f9358")
         self.assertEqual(patch.SOURCE.as_posix(),
                          "drivers/cam_utils/cam_debug_util.c")
         self.assertEqual(patch.HEADER.as_posix(),

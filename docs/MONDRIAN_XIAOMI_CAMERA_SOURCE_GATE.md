@@ -70,3 +70,26 @@ The next diagnostic CI attempts the same full camera.ko and cameralog.ko
 compile again; any further compiler or modpost failure remains a blocker.
 The Xiaomi upstream Git source, Kernel, Devicetrees and production module
 selection are untouched. No working Camera or hardware tests are claimed.
+
+## 16 November 2026 — second Camera compiler failure
+
+Full diagnostic GitHub Actions #43952612008 again compiled the exact
+OEM kernel vmlinux/Image/Module.symvers and Qualcomm MMRM successfully.
+Camera compilation advanced past cam_debug_util.c but failed at
+drivers/cam_sensor_module/cam_flash/cam_flash_dev.c lines 38, 74 and
+288. Three manufacturer function definitions used empty parameter
+lists, triggering LLVM23 -Wstrict-prototypes under -Werror.
+
+The next exact source correction additionally turns these three
+zero-argument function definitions into (void) without changing
+their implementations or existing no-argument call sites. The one
+previous cam_debug_get_settings() correction remains. Source revision
+and original file SHA-1 IDs remain pinned and any unexpected difference
+stops CI before changes are applied. The disposable checkout must
+report exactly four changed lines across two C files.
+
+SAFETY: cam_flash_dev.c in the reference yudi tree contains a
+hard-coded I2C flash GPIO (I2C_FLASH_GPIO_EN = 356). This is not
+qualified for mondrian; the CI fix must not alter, enable or ship this
+board-specific hardware path. Camera/sensor topology, camera.ko,
+cameralog.ko, driver dependencies and actual boot remain pending.
