@@ -193,6 +193,38 @@ class ModuleStagingTests(unittest.TestCase):
                 ["msm_drm", "goodix_core"],
             )
 
+    def test_camera_cameralog_dual_roots_and_module_dependencies(self):
+        # Synthetic graph: all five independent roots, plus OEM transitive
+        # dependencies. This is not a shipping modules.load.
+        files = {
+            name: Path(name + ".ko")
+            for name in ("camera", "cameralog", "msm_mmrm",
+                         "qca_cld3_qca6490", "msm_drm", "cfg80211",
+                         "qcom_display_notifier")
+        }
+        graph = {
+            "camera": ["msm_mmrm"], "cameralog": [],
+            "msm_mmrm": [], "qca_cld3_qca6490": ["cfg80211"],
+            "msm_drm": ["msm_mmrm", "qcom_display_notifier"],
+            "cfg80211": [], "qcom_display_notifier": [],
+        }
+        with patch.object(module, "dependencies",
+                          side_effect=lambda path: graph[path.stem]):
+            roots = ("msm_mmrm", "qca_cld3_qca6490", "msm_drm",
+                     "camera", "cameralog")
+            order = module.compute_closure(roots, files)
+        self.assertEqual(set(order), set(graph))
+        self.assertLess(order.index("msm_mmrm"), order.index("camera"))
+        self.assertLess(order.index("cfg80211"),
+                        order.index("qca_cld3_qca6490"))
+
+    def test_missing_camera_mmrm_dependency_fails_closed(self):
+        paths = {"camera": Path("camera.ko")}
+        with patch.object(module, "dependencies",
+                          return_value=["msm_mmrm"]):
+            with self.assertRaisesRegex(RuntimeError, "missing: msm_mmrm"):
+                module.compute_closure(("camera",), paths)
+
     def test_config_parser(self):
         with tempfile.TemporaryDirectory() as root:
             p = Path(root) / ".config"

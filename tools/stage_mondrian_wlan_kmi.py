@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage exact mondrian WLAN/MMRM/Display module dependency closure as diagnostic modules.
+"""Stage exact mondrian WLAN/MMRM/Display/Camera module dependency closure as diagnostic modules.
 
 Uses only Xiaomi's compiled OEM kernel modules and pinned Qualcomm MMRM/WLAN
 outputs. Refuses absent/duplicate module dependencies. Does not build an
@@ -136,6 +136,10 @@ def main():
     p.add_argument("--mmrm", type=Path, required=True)
     p.add_argument("--display", type=Path,
                    help="Optional Qualcomm msm_drm.ko built for this exact kernel; fail closed on its dependencies")
+    p.add_argument("--camera", type=Path,
+                   help="Optional OEM Xiaomi camera.ko, only with --cameralog")
+    p.add_argument("--cameralog", type=Path,
+                   help="Optional OEM Xiaomi cameralog.ko, only with --camera")
     p.add_argument("--audit-oem-root", action="append", default=[], metavar="BASENAME.ko",
                    help="Independently verify one compiled OEM module's diagnostic depmod closure")
     p.add_argument("--out", type=Path, required=True)
@@ -167,7 +171,12 @@ def main():
         oem_by_basename[path.name] = path
     wlan, mmrm = args.wlan.resolve(), args.mmrm.resolve()
     display = args.display.resolve() if args.display is not None else None
-    external_modules = (wlan, mmrm) + ((display,) if display is not None else ())
+    if (args.camera is None) != (args.cameralog is None):
+        p.error("Xiaomi camera.ko and cameralog.ko must be selected together")
+    camera = args.camera.resolve() if args.camera is not None else None
+    cameralog = args.cameralog.resolve() if args.cameralog is not None else None
+    camera_modules = (camera, cameralog) if camera is not None else ()
+    external_modules = (wlan, mmrm) + ((display,) if display is not None else ()) + camera_modules
     for external in external_modules:
         if not external.is_file():
             p.error(f"External module must be compiled before staging: {external}")
@@ -183,6 +192,10 @@ def main():
     wlan_name = module_name(wlan)
     mmrm_name = module_name(mmrm)
     display_name = module_name(display) if display is not None else None
+    camera_name = module_name(camera) if camera is not None else None
+    cameralog_name = module_name(cameralog) if cameralog is not None else None
+    if camera is not None and (camera_name != "camera" or cameralog_name != "cameralog"):
+        p.error("Unexpected Xiaomi Camera module names, refusing diagnostic selection")
     if mmrm_name != "msm_mmrm":
         p.error(f"Unexpected Qualcomm MMRM module: {mmrm_name}")
     if display is not None and display_name != "msm_drm":
@@ -193,7 +206,11 @@ def main():
     if not ROOT_WLAN_DEPS.issubset(present):
         p.error("WLAN direct dependencies differ from audited OEM contract: " +
                 ", ".join(sorted(present)))
-    initial_roots = (mmrm_name, wlan_name) + ((display_name,) if display_name else ())
+    initial_roots = (
+        (mmrm_name, wlan_name) +
+        ((display_name,) if display_name else ()) +
+        ((camera_name, cameralog_name) if camera is not None else ())
+    )
     try:
         audited_roots = verify_oem_diagnostic_roots(
             args.audit_oem_root, oem_by_basename, set(initial_roots))
@@ -206,7 +223,9 @@ def main():
         dest = checked_stage_directory(
             args.out, (kernel, kout, Path(__file__).resolve().parents[1],
                        wlan.parent, mmrm.parent,
-                       *((display.parent,) if display is not None else ())))
+                       *((display.parent,) if display is not None else ()),
+                       *((camera.parent, cameralog.parent)
+                         if camera is not None else ())))
     except ValueError as error:
         p.error(str(error))
     dest.mkdir(parents=True, exist_ok=False)
@@ -240,6 +259,14 @@ def main():
     checked_display = (command(["modprobe", "-d", dest, "-S", release,
                                 "--show-depends", display_name]).splitlines()
                        if display_name else [])
+    checked_camera = (
+        command(["modprobe", "-d", dest, "-S", release,
+                 "--show-depends", camera_name]).splitlines()
+        if camera is not None else [])
+    checked_cameralog = (
+        command(["modprobe", "-d", dest, "-S", release,
+                 "--show-depends", cameralog_name]).splitlines()
+        if cameralog is not None else [])
     checked_oem = {
         root: command(["modprobe", "-d", dest, "-S", release,
                        "--show-depends", root]).splitlines()
@@ -249,11 +276,17 @@ def main():
     wlan_actual = insmod_basenames(checked_wlan)
     mmrm_actual = insmod_basenames(checked_mmrm)
     display_actual = insmod_basenames(checked_display)
+    camera_actual = insmod_basenames(checked_camera)
+    cameralog_actual = insmod_basenames(checked_cameralog)
+    if camera is not None and (
+            camera.name not in camera_actual or
+            cameralog.name not in cameralog_actual):
+        p.error("modprobe dry-run omitted Xiaomi Camera/cameralog roots")
     if wlan.name not in wlan_actual or mmrm.name not in mmrm_actual:
         p.error("modprobe dry-run omitted the selected WLAN or MMRM root")
     if display is not None and display.name not in display_actual:
         p.error("modprobe dry-run omitted the selected Qualcomm Display root")
-    actual = wlan_actual | mmrm_actual | display_actual
+    actual = wlan_actual | mmrm_actual | display_actual | camera_actual | cameralog_actual
     for root, dry_run in checked_oem.items():
         loaded = insmod_basenames(dry_run)
         if files[root].name not in loaded:
@@ -276,6 +309,10 @@ def main():
         "modprobe_wlan_insmod_order": checked_wlan,
         "modprobe_mmrm_insmod_order": checked_mmrm,
         "modprobe_display_insmod_order": checked_display,
+        "modprobe_camera_insmod_order": checked_camera,
+        "modprobe_cameralog_insmod_order": checked_cameralog,
+        "camera_modules_included": camera is not None,
+        "camera_modules_are_diagnostic_only": True,
         "audited_oem_roots": list(audited_roots),
         "modprobe_oem_diagnostic_roots": checked_oem,
         "production_boot_load_order_qualified": False,
@@ -291,7 +328,9 @@ def main():
     (dest / "mondrian-wlan-diagnostic-manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n"
     )
-    print("[PASS] Exact kernel WLAN/MMRM" + ("/Display" if display is not None else "") +
+    print("[PASS] Exact kernel WLAN/MMRM" +
+          ("/Display" if display is not None else "") +
+          ("/Camera/cameralog" if camera is not None else "") +
           f" plus {len(audited_roots)} OEM diagnostic root(s) depmod+modprobe closure verified")
     print("[PENDING] Firmware, partition selection, SELinux, real hardware boot")
 

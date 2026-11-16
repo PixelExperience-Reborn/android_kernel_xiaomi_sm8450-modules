@@ -158,3 +158,38 @@ Device Trees, product modules.load, firmware, board masks, Android 17
 build flags, the \`seventeen\` branch, or the successful source-based
 PM8350C selection gate. This fixes the static ABI *test*, not any
 unverified physical Camera functionality.
+
+
+## 17 November 2026 — unify Camera into the same real OEM BSP closure
+
+The separate Xiaomi Camera and ABI run
+[GitHub Actions #43974526537](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/43974526537)
+already passed, as did the separate coherent OEM WLAN/Display/MMRM run
+[#43974526644](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/43974526644).
+Those separate builds do not by themselves prove that all Camera
+dependencies can be staged alongside WLAN/Display at once.
+
+The main coherent build now **compiles the exact MiCode Camera at
+9ed4ce96d49c0759c6365627113c5f59c2407942** against the same
+OEM 032260f full vmlinux/Module.symvers as WLAN, MMRM and
+Qualcomm Display. It uses the reviewed LLVM23 prototype adjustments
+and own mondrian PM8350C selector that prevents the donor GPIO356
+sysfs branch. All external modules must pass exact kernel AArch64
+and vermagic checks. The staging program accepts camera.ko and
+cameralog.ko as **two additional independent roots**, includes
+their required dependency closure through depmod/modprobe dry-run,
+refuses duplicates, and records hashes and loading dependencies.
+
+This stage deliberately does not fabricate camera sensor registers,
+actuator/eeprom power sequences, manufacturer PM8350C LED mask,
+CamX/CHI HAL bindings, stock software blobs, or a production
+vendor_dlkm/modules.load. Camera, Flash and UDFPS remain subject to
+real device bring-up once the independent source tree is complete.
+An optional OEM firmware image may aid verification but is NOT
+a condition for writing, building and testing the Qualcomm/Xiaomi BSP.
+
+The original MiCode source and the default `seventeen` branches
+are not edited. No LineageOS source, FM support, or other device
+targets are introduced. Failure of any Camera compile, dependency
+or static ABI gate blocks this combined build instead of allowing a
+false green from unrelated subsystem tests.
