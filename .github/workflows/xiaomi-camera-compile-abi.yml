@@ -7,6 +7,9 @@ on:
       - .github/workflows/xiaomi-camera-compile-abi.yml
       - tools/apply_xiaomi_camera_clang23_fix.py
       - tests/test_xiaomi_camera_clang23_fix.py
+      - tools/select_mondrian_pmic_flash.py
+      - tests/test_mondrian_pmic_flash.py
+      - mondrian-camera-flash-policy.json
   workflow_dispatch:
 
 permissions:
@@ -32,6 +35,12 @@ jobs:
           repository: MiCode/vendor_qcom_opensource_camera-kernel
           ref: 9ed4ce96d49c0759c6365627113c5f59c2407942
           path: xiaomi-camera-source
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees
+          ref: 67b408a5cc264c02545a414246f80a273ab295b5
+          path: device-tree
           persist-credentials: false
       - name: Reject unqualified source or kernel revision
         run: |
@@ -137,7 +146,28 @@ jobs:
             xiaomi-camera-source/drivers/cam_sensor_module/cam_flash/cam_flash_dev.c
           grep -Fq '#define I2C_FLASH_GPIO_EN 356' \
             xiaomi-camera-source/drivers/cam_sensor_module/cam_flash/cam_flash_dev.c
-      - name: Compile original Xiaomi camera.ko and cameralog.ko with MMRM symbols
+      - name: Enforce mondrian Qualcomm PM8350C and reject yudi GPIO356
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_mondrian_pmic_flash.py' -v
+          python3 tools/select_mondrian_pmic_flash.py \
+            --source xiaomi-camera-source \
+            --device-tree device-tree \
+            --manifest mondrian-camera-flash-policy.json \
+            --apply --evidence camera-mondrian-pmic-selection.json
+          git -C xiaomi-camera-source diff --check
+          if grep -Fq '#define CONFIG_CAMERA_I2CFLASH 1' \
+            xiaomi-camera-source/drivers/cam_sensor_module/cam_flash/cam_flash_dev.h; then
+            echo "[FAIL] unqualified yudi I2C flash forced in source" >&2
+            exit 1
+          fi
+          if grep -Eq '^CONFIG_CAMERA_I2CFLASH=y$' \
+            "$RUNNER_TEMP/mondrian-out/.config"; then
+            echo "[FAIL] unqualified I2C GPIO branch in kernel config" >&2
+            exit 1
+          fi
+          echo "[PASS] OEM PMIC selected; original GPIO356 sysfs branch gated" >> "$GITHUB_STEP_SUMMARY"
+      - name: Compile Xiaomi camera.ko and cameralog.ko with OEM PMIC backend
         run: |
           set -euo pipefail
           export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
@@ -151,6 +181,18 @@ jobs:
             2>&1 | tee camera-compile-diagnostic.log
           test -s "$cam/camera.ko"
           test -s "$cam/cameralog.ko"
+      - name: Check compiled Camera preserves Qualcomm PMIC and generic I2C
+        run: |
+          set -euo pipefail
+          cam="xiaomi-camera-source/camera.ko"
+          test -s "$cam"
+          nm -a "$cam" | grep -Eq '[[:space:]]cam_flash_pmic_power_ops$'
+          nm -a "$cam" | grep -Eq '[[:space:]]cam_flash_i2c_power_ops$'
+          if nm -a "$cam" | grep -Eq '[[:space:]](cam_flash_i2c_driver_powerup|cam_flash_i2c_driver_deinit_kobject|i2c_flash_kobj)$'; then
+            echo "[FAIL] donor GPIO356 / sysfs symbols compiled into mondrian Camera" >&2
+            exit 1
+          fi
+          echo "[PASS] Qualcomm PMIC + generic I2C retained; yudi sysfs backend absent" >> "$GITHUB_STEP_SUMMARY"
       - name: Verify both Xiaomi modules against the exact compiled OEM ABI
         run: |
           set -euo pipefail
@@ -175,6 +217,8 @@ jobs:
           path: |
             camera-compile-diagnostic.log
             camera-clang23-fix-evidence.json
+            camera-mondrian-pmic-selection.json
+            mondrian-camera-flash-policy.json
             camera-*-abi-evidence.json
             xiaomi-camera-source/*.ko
             xiaomi-camera-source/*.mod

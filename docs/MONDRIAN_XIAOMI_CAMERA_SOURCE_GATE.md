@@ -93,3 +93,40 @@ hard-coded I2C flash GPIO (I2C_FLASH_GPIO_EN = 356). This is not
 qualified for mondrian; the CI fix must not alter, enable or ship this
 board-specific hardware path. Camera/sensor topology, camera.ko,
 cameralog.ko, driver dependencies and actual boot remain pending.
+
+## 17 November 2026 — own mondrian PM8350C flash hardware safety gate
+
+The exact Xiaomi/Qualcomm Camera build #43961463487 passed both camera.ko
+and cameralog.ko ABI verification with the selected OEM kernel, but was
+only a compile test, not a safe flash implementation.
+
+The Xiaomi yudi Camera header forcibly defines CONFIG_CAMERA_I2CFLASH,
+which compiles a separate sysfs/CCI bridge and hard-coded GPIO356.
+This feature is not established for mondrian. A new PE-Reborn
+*build-time selector* replaces that single forced define in the
+disposable manufacturer checkout with a fail-closed prohibition on
+enabling CONFIG_CAMERA_I2CFLASH for mondrian. The original vendor code
+is preserved for other properly documented hardware; the generic
+Qualcomm I2C Flash path, PMIC path, CCI, sensor driver, and all non-flash
+Camera functionality stay intact. CI checks compiled symbols for the
+correct generic and PMIC functionality and absence of yudi's sysfs GPIO.
+
+The selector additionally checks the exact OEM MiCode Device Tree
+provenance in our own independent device-trees repo and confirms that
+PM8350C flash/switch nodes are already declared and enabled in the
+Xiaomi SM8475 common DTS. **Caution:** that OEM common DTS currently
+specifies switch0 LED mask 9 (channels 1 & 4); a separate mondrian
+reference uses mask 1. Neither is a verified factory flash layout
+for the device revision in hand. Do not guess a mask, change hardware
+pins or ship a mondrian Camera DTBO without original Xiaomi stock
+DTBO evidence and real device testing. The reference ROM is not
+a source or code dependency in PE-Reborn.
+
+The new JSON policy marks hardware readiness and product selection
+false. This step changes no Kernel, DTS, OTA, product module load list,
+ROM AOSP 17 sources, FM components, or default `seventeen` branch.
+
+Next independent task after CI: recover original Xiaomi *mondrian*
+Camera DTBO/firmware and verify sensor wiring, PM8350C channel
+selection and camera HAL compatibility before building an own
+qualified Camera overlay for the exact bootloader/SKU.

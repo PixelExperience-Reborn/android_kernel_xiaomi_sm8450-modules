@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "project": "PixelExperience-Reborn",
+  "android_base": "AOSP 17",
+  "device": "mondrian",
+  "soc": "SM8475",
+  "selected_kernel_commit": "032260f7c8dacf338e1ac993e1653cd1982877d1",
+  "manufacturer_camera": {
+    "repository": "MiCode/vendor_qcom_opensource_camera-kernel",
+    "commit": "9ed4ce96d49c0759c6365627113c5f59c2407942",
+    "reference_device": "yudi",
+    "header_blob": "592f7380c157e386ea724b20078f76d2edbac94d"
+  },
+  "xiaomi_device_tree": {
+    "repository": "PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees",
+    "commit": "67b408a5cc264c02545a414246f80a273ab295b5",
+    "manufacturer_repository": "MiCode/kernel_devicetree",
+    "manufacturer_commit": "34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c",
+    "common_dts_git_blob": "e4e321d4d54353f0243b0283647528180baa3137"
+  },
+  "flash_selection": {
+    "backend": "Qualcomm PM8350C",
+    "driver_configuration": "pmic_from_device_tree",
+    "manufacturer_yudi_i2c_sysfs_gpio356_enabled": false,
+    "mutter_flash_mask_hardware_qualified": false,
+    "mondrian_oem_camera_dtbo_verified": false,
+    "flash_sensor_topology_verified": false,
+    "hardware_torch_test_passed": false,
+    "production_camera_flash_allowed": false
+  },
+  "status": "SOURCE_ABI_PASS_HARDWARE_FLASH_UNQUALIFIED"
+}
