@@ -130,3 +130,31 @@ Next independent task after CI: recover original Xiaomi *mondrian*
 Camera DTBO/firmware and verify sensor wiring, PM8350C channel
 selection and camera HAL compatibility before building an own
 qualified Camera overlay for the exact bootloader/SKU.
+
+
+## 17 November 2026 — fix a false-negative ELF qualification gate
+
+Camera diagnostic [run #43970062439](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/43970062439)
+compiled the selected Xiaomi OEM kernel/Qualcomm MMRM and both Camera
+modules. The PM8350C selector passed and the yudi-specific GPIO356
+sysfs branch was excluded. CI then **falsely failed** because an
+additional check demanded \`cam_flash_pmic_power_ops\`: this function
+is absent from the manufacturer Camera implementation. The real
+PMIC binding deliberately sets \`fctrl->func_tbl.power_ops = NULL\`;
+it selects the PMIC packet parser, apply function, and flush function.
+The generic I2C path has a separate \`cam_flash_i2c_power_ops\`
+callback and remains intact.
+
+The revised gate parses the **actual camera.ko ELF with nm -P** and
+requires the manufacturer's real PMIC parse/apply/flush/LED symbols,
+generic I2C functions and I2C probe/driver registration. It rejects
+any compiled symbols from the unqualified yudi GPIO356/sysfs extension,
+requires exact OEM kernel vermagic, and emits SHA256/ELF evidence.
+Negative regression tests ensure neither disappearing PMIC/generic
+I2C functions nor re-enabling the donor-specific branch can pass.
+
+The corrections do not touch Xiaomi/Qualcomm driver code, kernel config,
+Device Trees, product modules.load, firmware, board masks, Android 17
+build flags, the \`seventeen\` branch, or the successful source-based
+PM8350C selection gate. This fixes the static ABI *test*, not any
+unverified physical Camera functionality.

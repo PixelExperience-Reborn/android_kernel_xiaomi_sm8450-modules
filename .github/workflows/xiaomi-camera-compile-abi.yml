@@ -9,6 +9,8 @@ on:
       - tests/test_xiaomi_camera_clang23_fix.py
       - tools/select_mondrian_pmic_flash.py
       - tests/test_mondrian_pmic_flash.py
+      - tools/verify_mondrian_camera_elf.py
+      - tests/test_mondrian_camera_elf.py
       - mondrian-camera-flash-policy.json
   workflow_dispatch:
 
@@ -181,18 +183,15 @@ jobs:
             2>&1 | tee camera-compile-diagnostic.log
           test -s "$cam/camera.ko"
           test -s "$cam/cameralog.ko"
-      - name: Check compiled Camera preserves Qualcomm PMIC and generic I2C
+      - name: Verify exact Qualcomm PMIC and generic I2C ELF symbols (no yudi GPIO356)
         run: |
           set -euo pipefail
-          cam="xiaomi-camera-source/camera.ko"
-          test -s "$cam"
-          nm -a "$cam" | grep -Eq '[[:space:]]cam_flash_pmic_power_ops$'
-          nm -a "$cam" | grep -Eq '[[:space:]]cam_flash_i2c_power_ops$'
-          if nm -a "$cam" | grep -Eq '[[:space:]](cam_flash_i2c_driver_powerup|cam_flash_i2c_driver_deinit_kobject|i2c_flash_kobj)$'; then
-            echo "[FAIL] donor GPIO356 / sysfs symbols compiled into mondrian Camera" >&2
-            exit 1
-          fi
-          echo "[PASS] Qualcomm PMIC + generic I2C retained; yudi sysfs backend absent" >> "$GITHUB_STEP_SUMMARY"
+          python3 -m unittest discover -s tests -p 'test_mondrian_camera_elf.py' -v
+          python3 tools/verify_mondrian_camera_elf.py \
+            --module xiaomi-camera-source/camera.ko \
+            --out camera-mondrian-elf-evidence.json
+          echo "[PASS] OEM PMIC parser/apply/flush, generic I2C and no donor sysfs GPIO356" >> "$GITHUB_STEP_SUMMARY"
+          echo "[PENDING] Stock mondrian Camera DTBO/PMIC channel and physical tests" >> "$GITHUB_STEP_SUMMARY"
       - name: Verify both Xiaomi modules against the exact compiled OEM ABI
         run: |
           set -euo pipefail
@@ -218,6 +217,7 @@ jobs:
             camera-compile-diagnostic.log
             camera-clang23-fix-evidence.json
             camera-mondrian-pmic-selection.json
+            camera-mondrian-elf-evidence.json
             mondrian-camera-flash-policy.json
             camera-*-abi-evidence.json
             xiaomi-camera-source/*.ko
