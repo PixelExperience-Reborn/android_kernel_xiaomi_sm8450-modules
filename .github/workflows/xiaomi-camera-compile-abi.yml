@@ -5,6 +5,8 @@ on:
     branches: [bringup/a17-mondrian-oem-bsp-20261111]
     paths:
       - .github/workflows/xiaomi-camera-compile-abi.yml
+      - tools/apply_xiaomi_camera_clang23_fix.py
+      - tests/test_xiaomi_camera_clang23_fix.py
   workflow_dispatch:
 
 permissions:
@@ -111,6 +113,21 @@ jobs:
             --module "$mmrm/driver/msm-mmrm.ko" \
             --expected-kernel-commit 032260f7c8dacf338e1ac993e1653cd1982877d1 \
             --out camera-mmrm-abi-evidence.json
+      - name: Test OEM-only Clang23 correction without editing Xiaomi upstream
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_xiaomi_camera_clang23_fix.py' -v
+          python3 tools/apply_xiaomi_camera_clang23_fix.py --source xiaomi-camera-source
+      - name: Adapt one original Xiaomi Camera C prototype to LLVM23
+        run: |
+          set -euo pipefail
+          python3 tools/apply_xiaomi_camera_clang23_fix.py \
+            --source xiaomi-camera-source --apply \
+            --evidence camera-clang23-fix-evidence.json
+          git -C xiaomi-camera-source diff --check
+          git -C xiaomi-camera-source diff -- drivers/cam_utils/cam_debug_util.c
+          grep -Fq 'const struct camera_debug_settings *cam_debug_get_settings(void)' \
+            xiaomi-camera-source/drivers/cam_utils/cam_debug_util.c
       - name: Compile original Xiaomi camera.ko and cameralog.ko with MMRM symbols
         run: |
           set -euo pipefail
@@ -148,6 +165,7 @@ jobs:
           retention-days: 7
           path: |
             camera-compile-diagnostic.log
+            camera-clang23-fix-evidence.json
             camera-*-abi-evidence.json
             xiaomi-camera-source/*.ko
             xiaomi-camera-source/*.mod

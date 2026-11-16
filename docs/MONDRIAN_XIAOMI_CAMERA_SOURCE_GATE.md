@@ -50,3 +50,23 @@ are not changed. Successful CI would prove only static compilation/ABI,
 On failure the next action is to fix the *specific* incompatibility in
 reviewed Xiaomi/Qualcomm code; do not replace the entire OEM base,
 drop functional drivers, or import code from LineageOS.
+
+## 16 November 2026 — first Camera compile failure (LLVM23)
+
+The real diagnostic run #43938037278 built the exact Xiaomi OEM 5.10.81
+kernel, Image, Module.symvers and Qualcomm MMRM successfully. It stopped
+on the original Xiaomi Camera source at drivers/cam_utils/cam_debug_util.c:82:
+the definition of cam_debug_get_settings() lacks an explicit void.
+Clang 23 reports -Wstrict-prototypes and treats it as an error with -Werror.
+
+The original header already declares cam_debug_get_settings(void). A
+separate, byte-exact correction script validates both manufacturer Git blobs
+and the unchanged Xiaomi commit, then changes only the disposable Camera
+checkout's function definition from () to (void). It does not modify the
+return type, function body, export, call sites, or binary ABI, and it does
+not suppress any warnings. The applied-source SHA is recorded separately.
+
+The next diagnostic CI attempts the same full camera.ko and cameralog.ko
+compile again; any further compiler or modpost failure remains a blocker.
+The Xiaomi upstream Git source, Kernel, Devicetrees and production module
+selection are untouched. No working Camera or hardware tests are claimed.
