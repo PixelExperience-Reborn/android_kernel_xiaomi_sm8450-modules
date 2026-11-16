@@ -62,7 +62,7 @@ def patch_flash_definitions(source):
     for old, call in zip(FLASH_SIGNATURES, FLASH_CALLS):
         if patched.count(old) != 1 or patched.count(call) != 1:
             raise ValueError("Expected a single no-argument Xiaomi flash definition/call")
-        new = old.replace(b"()\\n", b"(void)\\n")
+        new = old.replace(b"()\n", b"(void)\n")
         if new in patched:
             raise ValueError("Flash function already fixed or edited")
         patched = patched.replace(old, new, 1)

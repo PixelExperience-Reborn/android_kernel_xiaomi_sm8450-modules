@@ -47,7 +47,7 @@ class XiaomiCameraClang23Tests(unittest.TestCase):
         patched = patch.patch_flash_definitions(flash)
         for signature in patch.FLASH_SIGNATURES:
             self.assertNotIn(signature, patched)
-            self.assertIn(signature.replace(b"()\\n", b"(void)\\n"), patched)
+            self.assertIn(signature.replace(b"()\n", b"(void)\n"), patched)
         for call in patch.FLASH_CALLS:
             self.assertEqual(patched.count(call), 1)
         self.assertEqual(patched.count(patch.FLASH_GPIO_CONTRACT), 1)
