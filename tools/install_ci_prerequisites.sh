@@ -4,7 +4,7 @@
 # Bypass the GitHub runner's unstable mirror+file Azure archive selection.
 set -euo pipefail
 
-packages=(bc bison flex make libssl-dev libelf-dev dwarves binutils-aarch64-linux-gnu kmod)
+packages=(bc bison flex make gcc device-tree-compiler libssl-dev libelf-dev dwarves binutils-aarch64-linux-gnu kmod)
 
 write_sources() {
   local archive="$1" security="$2"
@@ -96,7 +96,7 @@ else
   fi
 fi
 
-for tool in bc bison flex make pahole aarch64-linux-gnu-ld modinfo; do
+for tool in bc bison flex make gcc dtc fdtoverlay fdtget pahole aarch64-linux-gnu-ld modinfo; do
   command -v "$tool" >/dev/null || {
     echo "::error::Required OEM build tool unavailable: $tool" >&2
     exit 1
