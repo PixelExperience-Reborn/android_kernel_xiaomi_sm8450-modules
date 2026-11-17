@@ -102,6 +102,22 @@ jobs:
           export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
           make -C kernel O="$RUNNER_TEMP/mondrian-out" -j3 vmlinux Image modules
           test -s "$RUNNER_TEMP/mondrian-out/Module.symvers"
+      - name: Verify OEM mondrian Camera power LDO driver and compiled module
+        run: |
+          set -euo pipefail
+          cfg="$RUNNER_TEMP/mondrian-out/.config"
+          ldo="$RUNNER_TEMP/mondrian-out/drivers/misc/wl2866d.ko"
+          grep -Fxq 'CONFIG_LDO_WL2866D=m' "$cfg"
+          grep -Fq 'compatible = "xiaomi,wl2866d";' \
+            device-tree/qcom/mondrian-wl2866d.dtsi
+          grep -Fq 'compatible = "xiaomi,wl2866d"' \
+            kernel/drivers/misc/wl2866d.c
+          grep -Fq 'subsys_initcall(wl2866d_i2c_init);' \
+            kernel/drivers/misc/wl2866d.c
+          test -s "$ldo"
+          test "$(modinfo -F name "$ldo")" = wl2866d
+          echo "[PASS] OEM mondrian WL2866D module and matching I2C binding compiled" >> "$GITHUB_STEP_SUMMARY"
+          echo "[PENDING] Camera regulator power sequencing and physical hardware" >> "$GITHUB_STEP_SUMMARY"
       - name: Audit all original OEM and critical mondrian kernel modules
         run: |
           set -euo pipefail
@@ -228,7 +244,7 @@ jobs:
       - name: Verify WLAN/MMRM/Display/Camera and critical OEM module dependency closures
         run: |
           set -euo pipefail
-          # Import the same 14-module source contract as the compiled inventory
+          # Import the same 15-module source contract as the compiled inventory
           # check; these are diagnostic roots, never an Android load list.
           mapfile -t critical_roots < <(python3 - <<'PY'
           import sys
@@ -238,7 +254,7 @@ jobs:
               print(entry)
           PY
           )
-          test "${#critical_roots[@]}" -eq 14
+          test "${#critical_roots[@]}" -eq 15
           args=()
           for ko in "${critical_roots[@]}"; do
             args+=(--audit-oem-root "$ko")
@@ -273,7 +289,7 @@ jobs:
             test -s "$file" || { echo "::error::missing diagnostic artifact: $file"; exit 1; }
           done
           test "$(git -C kernel rev-parse HEAD)" = 032260f7c8dacf338e1ac993e1653cd1982877d1
-          python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["kernel_commit"]==sys.argv[2] and d["display_module_included"] and d["all_root_dry_run_union_matches_staged_closure"] and d["camera_modules_included"] and d["camera_modules_are_diagnostic_only"] and len(d["checked_module_roots"])==19 and len(d["audited_oem_roots"])==14 and not d["production_boot_load_order_qualified"]' \
+          python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["kernel_commit"]==sys.argv[2] and d["display_module_included"] and d["all_root_dry_run_union_matches_staged_closure"] and d["camera_modules_included"] and d["camera_modules_are_diagnostic_only"] and len(d["checked_module_roots"])==20 and len(d["audited_oem_roots"])==15 and not d["production_boot_load_order_qualified"]' \
             "$manifest" 032260f7c8dacf338e1ac993e1653cd1982877d1
           sha256sum "$image" "$symvers" "$config" "$display" "$wlan" "$mmrm" "$camera" "$cameralog" "$manifest" "$inventory" \
             > "$RUNNER_TEMP/mondrian-stage/diagnostic-sha256.txt"
