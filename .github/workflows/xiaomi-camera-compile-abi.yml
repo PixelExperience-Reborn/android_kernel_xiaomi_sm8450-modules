@@ -39,7 +39,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees
-          ref: 67b408a5cc264c02545a414246f80a273ab295b5
+          ref: c79e502e97627f6b5bc95633c16e81511bdbb088
           path: device-tree
           persist-credentials: false
       - name: Reject unqualified source or kernel revision
