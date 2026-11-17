@@ -270,6 +270,23 @@ jobs:
             --cameralog "$GITHUB_WORKSPACE/xiaomi-camera-source/cameralog.ko" \
             "${args[@]}" \
             --out "$RUNNER_TEMP/mondrian-stage"
+          # Camera power's OEM WL2866D is NOT in Xiaomi modules.list;
+          # enforce that our independent diagnostic root is really staged.
+          python3 - "$RUNNER_TEMP/mondrian-stage/mondrian-wlan-diagnostic-manifest.json" <<'PY'
+          import json
+          import pathlib
+          import sys
+          manifest = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          name = "wl2866d"
+          assert name in manifest["audited_oem_roots"], "WL2866D not an audited root"
+          assert manifest["module_files"].get(name) == "kernel/drivers/misc/wl2866d.ko", "WL2866D not staged from OEM source"
+          assert name in manifest["staged_module_order"], "WL2866D absent from dependency closure"
+          load = manifest["modprobe_oem_diagnostic_roots"].get(name, [])
+          assert any(str(line).endswith("/wl2866d.ko") for line in load if line.startswith("insmod ")), "WL2866D absent from modprobe dry-run"
+          assert len(manifest["sha256"].get(name, "")) == 64, "WL2866D module digest missing"
+          assert manifest["production_boot_load_order_qualified"] is False, "diagnostic test cannot select production order"
+          print("[PASS] OEM Camera WL2866D staged, hashed and covered by depmod+modprobe")
+          PY
           cat "$RUNNER_TEMP/mondrian-stage/mondrian-wlan-diagnostic-manifest.json" \
             >> "$GITHUB_STEP_SUMMARY"
       - name: Check reusable diagnostic Image, modules and matching SHA256 manifest
