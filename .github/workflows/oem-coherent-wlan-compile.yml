@@ -70,8 +70,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees
-          ref: 67b408a5cc264c02545a414246f80a273ab295b5
+          ref: c79e502e97627f6b5bc95633c16e81511bdbb088
           path: device-tree
+          submodules: recursive
           persist-credentials: false
       - name: Install signed Ubuntu 24.04 kernel build dependencies (no Azure mirror)
         timeout-minutes: 13
@@ -315,6 +316,79 @@ jobs:
             --out "$RUNNER_TEMP/camera-wl2866d-abi-evidence.json"
           echo "[PASS] Camera OEM WL2866D power ABI, module dependency and load order" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] Camera sensor-to-rail mapping and device hardware test" >> "$GITHUB_STEP_SUMMARY"
+      - name: Integrate exact OEM Kernel, Camera, Audio and native mondrian Devicetrees
+        run: |
+          set -euo pipefail
+          test "$(git -C kernel rev-parse HEAD)" = 032260f7c8dacf338e1ac993e1653cd1982877d1
+          test "$(git -C device-tree rev-parse HEAD)" = c79e502e97627f6b5bc95633c16e81511bdbb088
+          test "$(git -C device-tree/upstream/xiaomi-dts rev-parse HEAD)" = 34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c
+          test "$(git -C device-tree/upstream/xiaomi-camera-platform rev-parse HEAD)" = a59a63bd498b94074c41357a466874b99aec62a8
+          python3 -m venv "$RUNNER_TEMP/pe-bsp-dt-venv"
+          "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" -m pip install --disable-pip-version-check lz4==4.4.5
+          "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" -m unittest discover -s device-tree/tests -p 'test_mondrian_audio_fdt.py' -v
+          "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" device-tree/tools/build_oem_dtbo.py \\
+            --kernel kernel \\
+            --expected-kernel-commit 032260f7c8dacf338e1ac993e1653cd1982877d1 \\
+            --out "$RUNNER_TEMP/mondrian-coherent-board"
+          "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" device-tree/tools/build_mondrian_camera_platform.py \\
+            --kernel kernel \\
+            --camera-kernel xiaomi-camera-source \\
+            --board-build "$RUNNER_TEMP/mondrian-coherent-board" \\
+            --out "$RUNNER_TEMP/mondrian-coherent-camera-platform"
+          python3 - "$RUNNER_TEMP/mondrian-coherent-board/dtbo-diagnostic-evidence.json" \\
+            "$RUNNER_TEMP/mondrian-coherent-camera-platform/mondrian-camera-platform-diagnostic-evidence.json" \\
+            "$RUNNER_TEMP/mondrian-stage/mondrian-wlan-diagnostic-manifest.json" \\
+            "$RUNNER_TEMP/mondrian-three-repo-diagnostic-evidence.json" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import sys
+          board_path, camera_path, modules_path, output_path = map(pathlib.Path, sys.argv[1:])
+          board, camera, modules = [json.loads(p.read_text()) for p in (board_path, camera_path, modules_path)]
+          kernel_sha = "032260f7c8dacf338e1ac993e1653cd1982877d1"
+          bases = {"cape", "cape-v2", "capep"}
+          assert board["kernel"] == kernel_sha and camera["kernel_commit"] == kernel_sha
+          assert modules["kernel_commit"] == kernel_sha
+          assert set(board["mondrian_oem_audio_compiled_evidence"]) == bases
+          for variant in bases:
+              amp = board["mondrian_oem_audio_compiled_evidence"][variant]
+              assert amp["oem_board_speaker_gpio_and_i2c_verified"] is True
+              assert amp["production_audio_approved"] is False
+              assert sorted(amp["oem_aw882xx_amplifiers"]) == ["0x34", "0x35"]
+              assert camera["per_board"][variant]["manufacturer_board_properties_preserved"] is True
+          assert board["goodix_udfps_oem_bindings_verified"] is True
+          assert board["camera_pmic_oem_source_links_compiled"] is True
+          assert camera["all_three_cape_base_dtb_links_resolved"] is True
+          assert modules["camera_modules_included"] is True
+          assert modules["production_boot_load_order_qualified"] is False
+          for flag in ("production_camera_dtbo_approved", "physical_camera_hardware_tested"):
+              assert camera[flag] is False
+          for flag in ("mondrian_audio_kernel_abi_qualified", "mondrian_audio_hal_qualified",
+                       "mondrian_audio_hardware_verified", "production_audio_approved"):
+              assert board[flag] is False
+          report = {
+              "device": "mondrian", "android_base": "AOSP 17",
+              "kernel_commit": kernel_sha,
+              "modules_commit": "${{ github.sha }}",
+              "devicetrees_commit": "c79e502e97627f6b5bc95633c16e81511bdbb088",
+              "coherent_kernel_modules_and_device_trees_compiled": True,
+              "source_only_audio_speaker_and_mi2s_verified": True,
+              "camera_cci_csiphy_controller_overlay_compiled": True,
+              "camera_sensor_routing_verified": False,
+              "m11a_lhbm_hardware_verified": False,
+              "goodix_udfps_hardware_verified": False,
+              "audio_kernel_driver_verified": False,
+              "audio_hal_and_hardware_verified": False,
+              "production_boot_dtbo_and_modules_load_approved": False,
+              "input_evidence_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                                        for p in (board_path, camera_path, modules_path)},
+          }
+          output_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\\n")
+          print("[PASS] Exact Kernel + Camera/Audio OEM DTB and external module diagnostic closure")
+          print("[PENDING] M11A panel/LHBM, UDFPS runtime, Audio driver+HAL, sensors, product images")
+          PY
+          echo "[PASS] Three-repository OEM Image/Modules/Camera/Audio-DTB diagnostic build" >> "$GITHUB_STEP_SUMMARY"
+          echo "[PENDING] Production boot/DTBO/modules.load and physical Camera/Audio/LHBM/UDFPS" >> "$GITHUB_STEP_SUMMARY"
       - name: Check reusable diagnostic Image, modules and matching SHA256 manifest
         run: |
           set -euo pipefail
@@ -366,6 +440,12 @@ jobs:
             ${{ runner.temp }}/wlan-abi-evidence.json
             ${{ runner.temp }}/display-abi-evidence.json
             ${{ runner.temp }}/mondrian-inventory.json
+            ${{ runner.temp }}/mondrian-three-repo-diagnostic-evidence.json
+            ${{ runner.temp }}/mondrian-coherent-board/dtbo-diagnostic-evidence.json
+            ${{ runner.temp }}/mondrian-coherent-board/images/*.dtb
+            ${{ runner.temp }}/mondrian-coherent-board/images/*.dtbo
+            ${{ runner.temp }}/mondrian-coherent-camera-platform/mondrian-camera-platform-diagnostic-evidence.json
+            ${{ runner.temp }}/mondrian-coherent-camera-platform/images/*.dtbo
             ${{ runner.temp }}/mondrian-stage/diagnostic-sha256.txt
             ${{ runner.temp }}/mondrian-stage/mondrian-wlan-diagnostic-manifest.json
             ${{ runner.temp }}/mondrian-stage/lib/modules/**/modules.dep
