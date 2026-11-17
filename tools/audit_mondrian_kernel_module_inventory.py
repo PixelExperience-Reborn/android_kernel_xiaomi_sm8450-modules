@@ -29,6 +29,9 @@ MONDRIAN_CRITICAL_MODULES = frozenset({
     "qti_devfreq_cdev.ko", "thermal_pause.ko", "sched-walt.ko",
     "ufs_qcom.ko", "qcom_dma_heaps.ko", "qti_battery_charger.ko",
     "qcom-cpufreq-hw.ko", "qcom_wdt_core.ko",
+    # OEM mondrian WL2866D is CONFIG_LDO_WL2866D=m and is absent
+    # from modules.list; keep it as a separate Camera power diagnostic root.
+    "wl2866d.ko",
 })
 
 
