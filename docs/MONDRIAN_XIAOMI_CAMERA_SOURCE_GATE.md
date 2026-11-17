@@ -193,3 +193,32 @@ are not edited. No LineageOS source, FM support, or other device
 targets are introduced. Failure of any Camera compile, dependency
 or static ABI gate blocks this combined build instead of allowing a
 false green from unrelated subsystem tests.
+
+
+## 17 November 2026 — include original MiCode Camera as pinned BSP source
+
+The coherent OEM Image + WLAN + MMRM + Display + Camera build passed at
+[GitHub Actions #43980510503](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/43980510503).
+Before this stage, all three Camera CI workflows made independent
+`actions/checkout` calls against the same manufacturer SHA, leaving
+Camera outside the actual BSP Git tree. Other OEM/Qualcomm components
+(WLAN, MMRM) already used pinned submodules.
+
+`xiaomi-camera-source` is now a **Git submodule** pointing directly to
+`MiCode/vendor_qcom_opensource_camera-kernel` at the validated manufacturer
+commit `9ed4ce96d49c0759c6365627113c5f59c2407942`, with unchanged
+upstream tree `e8fadfd2127cb9e12696273e1661ead9f9a70c89`.
+All existing camera source-only, standalone ABI, and coherent OEM build
+workflows now use the *same recursively initialized Gitlink* instead of
+cloning another Camera revision. A fail-closed check verifies the submodule
+URL, recorded SHA, checked-out HEAD/tree, original file blobs, and
+provenance. Xiaomi's unmodified source remains available; the four LLVM23
+C-prototype fixes and the mondrian PM8350C safety selector remain
+reviewed, isolated build-time adaptations.
+
+This is **reproducible OEM source integration**, not a transfer of
+yudi-specific sensor wiring to mondrian. Neither the Xiaomi manufacturer
+repository nor any LineageOS source is changed. No Camera HAL, DTS sensor
+powers, production modules.load, boot/vendor_dlkm packaging or physical
+flash behavior is claimed ready by this source pin. Subsequent work can
+build a native camera board configuration against precisely this input.

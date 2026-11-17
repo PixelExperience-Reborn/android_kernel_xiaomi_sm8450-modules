@@ -24,6 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tests -v
+          python3 tools/verify_xiaomi_camera_submodule.py
           python3 tools/verify_oem_wlan.py
           python3 tools/apply_oem_wlan_fix.py
           python3 tools/verify_qcom_mmrm.py
@@ -50,12 +51,6 @@ jobs:
           repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450
           ref: 032260f7c8dacf338e1ac993e1653cd1982877d1
           path: kernel
-          persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          repository: MiCode/vendor_qcom_opensource_camera-kernel
-          ref: 9ed4ce96d49c0759c6365627113c5f59c2407942
-          path: xiaomi-camera-source
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
@@ -193,6 +188,7 @@ jobs:
       - name: Compile original Xiaomi camera/cameralog with PM8350C and SAME OEM MMRM symbols
         run: |
           set -euo pipefail
+          python3 tools/verify_xiaomi_camera_submodule.py
           test "$(git -C xiaomi-camera-source rev-parse HEAD)" = 9ed4ce96d49c0759c6365627113c5f59c2407942
           python3 -m unittest discover -s tests -p 'test_xiaomi_camera_clang23_fix.py' -v
           python3 tools/apply_xiaomi_camera_clang23_fix.py --source xiaomi-camera-source

@@ -4,3 +4,6 @@
 [submodule "upstream/qualcomm/mmrm"]
 	path = upstream/qualcomm/mmrm
 	url = https://git.codelinaro.org/clo/la/platform/vendor/opensource/mmrm-driver.git
+[submodule "xiaomi-camera-source"]
+	path = xiaomi-camera-source
+	url = https://github.com/MiCode/vendor_qcom_opensource_camera-kernel.git
