@@ -326,18 +326,18 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/pe-bsp-dt-venv"
           "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" -m pip install --disable-pip-version-check lz4==4.4.5
           "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" -m unittest discover -s device-tree/tests -p 'test_mondrian_audio_fdt.py' -v
-          "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" device-tree/tools/build_oem_dtbo.py \\
-            --kernel kernel \\
-            --expected-kernel-commit 032260f7c8dacf338e1ac993e1653cd1982877d1 \\
+          "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" device-tree/tools/build_oem_dtbo.py \
+            --kernel kernel \
+            --expected-kernel-commit 032260f7c8dacf338e1ac993e1653cd1982877d1 \
             --out "$RUNNER_TEMP/mondrian-coherent-board"
-          "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" device-tree/tools/build_mondrian_camera_platform.py \\
-            --kernel kernel \\
-            --camera-kernel xiaomi-camera-source \\
-            --board-build "$RUNNER_TEMP/mondrian-coherent-board" \\
+          "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" device-tree/tools/build_mondrian_camera_platform.py \
+            --kernel kernel \
+            --camera-kernel xiaomi-camera-source \
+            --board-build "$RUNNER_TEMP/mondrian-coherent-board" \
             --out "$RUNNER_TEMP/mondrian-coherent-camera-platform"
-          python3 - "$RUNNER_TEMP/mondrian-coherent-board/dtbo-diagnostic-evidence.json" \\
-            "$RUNNER_TEMP/mondrian-coherent-camera-platform/mondrian-camera-platform-diagnostic-evidence.json" \\
-            "$RUNNER_TEMP/mondrian-stage/mondrian-wlan-diagnostic-manifest.json" \\
+          python3 - "$RUNNER_TEMP/mondrian-coherent-board/dtbo-diagnostic-evidence.json" \
+            "$RUNNER_TEMP/mondrian-coherent-camera-platform/mondrian-camera-platform-diagnostic-evidence.json" \
+            "$RUNNER_TEMP/mondrian-stage/mondrian-wlan-diagnostic-manifest.json" \
             "$RUNNER_TEMP/mondrian-three-repo-diagnostic-evidence.json" <<'PY'
           import hashlib
           import json
@@ -383,7 +383,7 @@ jobs:
               "input_evidence_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                                         for p in (board_path, camera_path, modules_path)},
           }
-          output_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\\n")
+          output_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
           print("[PASS] Exact Kernel + Camera/Audio OEM DTB and external module diagnostic closure")
           print("[PENDING] M11A panel/LHBM, UDFPS runtime, Audio driver+HAL, sensors, product images")
           PY
