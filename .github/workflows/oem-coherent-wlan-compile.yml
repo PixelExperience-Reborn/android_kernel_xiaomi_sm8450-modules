@@ -14,6 +14,8 @@ on:
       - tests/test_oem_kmi_staging.py
       - xiaomi-camera-source
       - tools/verify_mondrian_camera_elf.py
+      - tools/verify_mondrian_camera_wl2866d_abi.py
+      - tests/test_mondrian_camera_wl2866d_abi.py
       - tools/select_mondrian_pmic_flash.py
       - mondrian-camera-flash-policy.json
   workflow_dispatch:
@@ -302,6 +304,17 @@ jobs:
           PY
           cat "$RUNNER_TEMP/mondrian-stage/mondrian-wlan-diagnostic-manifest.json" \
             >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify real Xiaomi Camera to OEM WL2866D ELF and module-load ABI
+        run: |
+          set -euo pipefail
+          python3 tools/verify_mondrian_camera_wl2866d_abi.py \
+            --camera xiaomi-camera-source/camera.ko \
+            --wl2866d "$RUNNER_TEMP/mondrian-out/drivers/misc/wl2866d.ko" \
+            --config "$RUNNER_TEMP/mondrian-out/.config" \
+            --manifest "$RUNNER_TEMP/mondrian-stage/mondrian-wlan-diagnostic-manifest.json" \
+            --out "$RUNNER_TEMP/camera-wl2866d-abi-evidence.json"
+          echo "[PASS] Camera OEM WL2866D power ABI, module dependency and load order" >> "$GITHUB_STEP_SUMMARY"
+          echo "[PENDING] Camera sensor-to-rail mapping and device hardware test" >> "$GITHUB_STEP_SUMMARY"
       - name: Check reusable diagnostic Image, modules and matching SHA256 manifest
         run: |
           set -euo pipefail
@@ -346,6 +359,7 @@ jobs:
             ${{ runner.temp }}/camera-clang23-fix-evidence.json
             ${{ runner.temp }}/camera-pmic-selection-evidence.json
             ${{ runner.temp }}/camera-pmic-elf-evidence.json
+            ${{ runner.temp }}/camera-wl2866d-abi-evidence.json
             ${{ runner.temp }}/camera-oem-abi-evidence.json
             ${{ runner.temp }}/cameralog-oem-abi-evidence.json
             ${{ runner.temp }}/mmrm-abi-evidence.json
