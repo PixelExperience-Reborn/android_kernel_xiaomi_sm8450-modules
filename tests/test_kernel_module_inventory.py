@@ -31,7 +31,8 @@ class InventoryTests(unittest.TestCase):
         report = module.classify(self.expected, self.built, self.config, self.root)
         self.assertEqual(report["compiled_oem_names"], 100)
         self.assertEqual(report["oem_entries"], 106)
-        self.assertEqual(len(module.MONDRIAN_CRITICAL_MODULES), 14)
+        self.assertEqual(len(module.MONDRIAN_CRITICAL_MODULES), 15)
+        self.assertIn("wl2866d.ko", module.MONDRIAN_CRITICAL_MODULES)
         self.assertIn("goodix_fod.ko", module.MONDRIAN_CRITICAL_MODULES)
 
     def test_missing_essential_module_rejected(self):
