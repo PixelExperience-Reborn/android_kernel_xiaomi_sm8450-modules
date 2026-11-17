@@ -3,6 +3,19 @@ name: Qualify coherent mondrian OEM Image, Display, WLAN, MMRM, Camera and criti
 on:
   push:
     branches: [bringup/a17-mondrian-oem-bsp-20261111]
+  # Full OEM build must also run on the active bringup PR; otherwise
+  # GitHub's PR-only checks validate sources but skip the kernel/module job.
+  pull_request:
+    paths:
+      - .github/workflows/oem-coherent-wlan-compile.yml
+      - tools/audit_mondrian_kernel_module_inventory.py
+      - tests/test_kernel_module_inventory.py
+      - tools/stage_mondrian_wlan_kmi.py
+      - tests/test_oem_kmi_staging.py
+      - xiaomi-camera-source
+      - tools/verify_mondrian_camera_elf.py
+      - tools/select_mondrian_pmic_flash.py
+      - mondrian-camera-flash-policy.json
   workflow_dispatch:
 
 concurrency:
