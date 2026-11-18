@@ -188,6 +188,9 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_mondrian_camera_elf.py' -v
           python3 tools/verify_mondrian_camera_elf.py \
             --module xiaomi-camera-source/camera.ko \
+            --kernel kernel \
+            --kernel-out "$RUNNER_TEMP/mondrian-out" \
+            --expected-kernel-commit c9c67329b427ba21dea10d7a6e404ff422f86c1a\
             --out camera-mondrian-elf-evidence.json
           echo "[PASS] OEM PMIC parser/apply/flush, generic I2C and no donor sysfs GPIO356" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] Stock mondrian Camera DTBO/PMIC channel and physical tests" >> "$GITHUB_STEP_SUMMARY"
