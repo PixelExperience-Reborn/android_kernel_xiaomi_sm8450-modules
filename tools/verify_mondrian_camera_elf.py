@@ -11,10 +11,20 @@ This check is static compile evidence only, not a camera/flash runtime test.
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import subprocess
 
-EXPECTED_VERMAGIC = "5.10.81-gki-g032260f7c8da"
+OEM_VERSION = re.compile(r"5[.]10[.]81(?:[-+][A-Za-z0-9._+\\-]+)?")
+
+
+def check_camera_vermagic(actual, release):
+    if not OEM_VERSION.fullmatch(release):
+        raise ValueError("unexpected Xiaomi OEM kernelrelease: " + repr(release))
+    if not actual.split() or actual.split()[0] != release:
+        raise ValueError("Camera ELF/kernelrelease mismatch: " + repr(actual)
+                         + " vs " + repr(release))
+
 PMIC_FUNCTIONS = frozenset({
     "cam_flash_pmic_pkt_parser",
     "cam_flash_pmic_apply_setting",
@@ -85,23 +95,36 @@ def check_camera_elf(symbols):
     }
 
 
-def inspect(module):
-    if not module.is_file() or module.stat().st_size < 4096:
-        raise ValueError("missing/invalid compiled camera.ko")
+def inspect(module, kernel, kernel_out, expected_kernel_commit):
+    if not re.fullmatch(r"[0-9a-f]{40}", expected_kernel_commit):
+        raise ValueError("selected kernel commit must be exact SHA")
+    actual_kernel_commit = subprocess.check_output(
+        ["git", "-C", str(kernel), "rev-parse", "HEAD"], text=True).strip()
+    if actual_kernel_commit != expected_kernel_commit:
+        raise ValueError("unreviewed OEM kernel revision: " + actual_kernel_commit)
+    for file in (module, kernel_out / "vmlinux",
+                 kernel_out / "Module.symvers", kernel_out / ".config"):
+        if not file.is_file() or file.stat().st_size == 0:
+            raise ValueError("missing compiled OEM kernel/Camera evidence: " + str(file))
+    if module.stat().st_size < 4096:
+        raise ValueError("invalid compiled camera.ko")
     symbols = parse_nm_posix(subprocess.check_output(
         ["nm", "-P", str(module)], text=True))
     checks = check_camera_elf(symbols)
     vermagic = subprocess.check_output(
         ["modinfo", "-F", "vermagic", str(module)], text=True).strip()
-    if not vermagic.startswith(EXPECTED_VERMAGIC + " "):
-        raise ValueError(f"unexpected OEM kernel vermagic: {vermagic!r}")
+    release = subprocess.check_output(
+        ["make", "-s", "-C", str(kernel), f"O={kernel_out}", "kernelrelease"],
+        text=True).strip()
+    check_camera_vermagic(vermagic, release)
     return {
         "status": "PASS_STATIC_CAMERA_PMIC_ELF",
         "device": "mondrian",
         "android_base": "AOSP 17",
         "module_sha256": hashlib.sha256(module.read_bytes()).hexdigest(),
         "module_vermagic": vermagic,
-        "kernel_revision": "032260f7c8dacf338e1ac993e1653cd1982877d1",
+        "kernelrelease": release,
+        "kernel_revision": actual_kernel_commit,
         "qualcomm_pmic_static_symbols_verified": True,
         "generic_i2c_static_symbols_verified": True,
         "manufacturer_camera_dtbo_qualified": False,
@@ -116,10 +139,14 @@ def inspect(module):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--module", required=True, type=Path)
+    parser.add_argument("--kernel", required=True, type=Path)
+    parser.add_argument("--kernel-out", required=True, type=Path)
+    parser.add_argument("--expected-kernel-commit", required=True)
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()
     try:
-        result = inspect(args.module)
+        result = inspect(args.module.resolve(), args.kernel.resolve(),
+                         args.kernel_out.resolve(), args.expected_kernel_commit)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
     except (ValueError, OSError, subprocess.CalledProcessError) as exc:
