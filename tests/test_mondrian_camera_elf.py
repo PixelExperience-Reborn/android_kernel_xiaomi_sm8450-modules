@@ -67,6 +67,21 @@ class MondrianCameraElfTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "missing PMIC"):
                     gate.check_camera_elf(gate.parse_nm_posix(bad))
 
+    def test_camera_kernelrelease_matches_compiled_kbuild_not_hardcoded_git(self):
+        gate.check_camera_vermagic(
+            "5.10.81-gki-gc9c67329b427 SMP preempt mod_unload aarch64",
+            "5.10.81-gki-gc9c67329b427")
+        for actual, release in (
+            ("5.10.81-gki-g032260f7c8da SMP aarch64",
+             "5.10.81-gki-gc9c67329b427"),
+            ("5.10.81-gki SMP aarch64",
+             "5.10.81-gki-gc9c67329b427"),
+            ("5.10.82-gki SMP aarch64", "5.10.82-gki"),
+        ):
+            with self.subTest(actual=actual, release=release):
+                with self.assertRaisesRegex(ValueError, "kernelrelease|vermagic"):
+                    gate.check_camera_vermagic(actual, release)
+
     def test_empty_nm_cannot_pass(self):
         with self.assertRaisesRegex(ValueError, "no ELF symbols"):
             gate.parse_nm_posix("\n")
