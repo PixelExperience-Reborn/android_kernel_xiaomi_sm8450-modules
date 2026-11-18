@@ -254,6 +254,9 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_mondrian_camera_elf.py' -v
           python3 tools/verify_mondrian_camera_elf.py \
             --module "$cam/camera.ko" \
+            --kernel kernel \
+            --kernel-out "$RUNNER_TEMP/mondrian-out" \
+            --expected-kernel-commit c9c67329b427ba21dea10d7a6e404ff422f86c1a\
             --out "$RUNNER_TEMP/camera-pmic-elf-evidence.json"
           echo "[PASS] Xiaomi Camera modules compiled with OEM Image, MMRM and Qualcomm PMIC" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] mondrian hardware sensors/LED channel/Android Camera HAL" >> "$GITHUB_STEP_SUMMARY"
