@@ -13,8 +13,9 @@ two module targets camera.ko and cameralog.ko, and configuration requiring
 Qualcomm MMRM. Manufacturer Android.mk for taro requires mmrm-module-symvers.
 The new CI audits source commit/tree, original Git blobs and those contracts.
 
-Selected target remains Xiaomi OEM kernel Linux 5.10.81 at
-032260f7c8dacf338e1ac993e1653cd1982877d1, AOSP 17, mondrian only.
+Current selected target is Xiaomi OEM kernel Linux 5.10.81 at
+c9c67329b427ba21dea10d7a6e404ff422f86c1a, AOSP 17, mondrian only.
+The older revisions and workflow runs below are retained as historical evidence.
 No LineageOS source is imported; only Xiaomi sources and verified official
 Qualcomm dependencies may form the target BSP. FM remains excluded.
 
