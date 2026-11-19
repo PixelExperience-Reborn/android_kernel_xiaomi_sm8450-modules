@@ -12,7 +12,7 @@ diff --git a/drivers/cam_sensor_module/cam_csiphy/cam_csiphy_soc.c b/drivers/cam
  
  /* Clock divide factor for CPHY spec v1.0 */
  #define CSIPHY_DIVISOR_16                    16
-@@ -26,7 +26,133 @@
+@@ -26,7 +28,133 @@
  #define CSIPHY_LOG_BUFFER_SIZE_IN_BYTES      250
  #define ONE_LOG_LINE_MAX_SIZE                20
  
@@ -147,7 +147,7 @@ diff --git a/drivers/cam_sensor_module/cam_csiphy/cam_csiphy_soc.c b/drivers/cam
  {
  	char                                    *buffer;
  	uint8_t                                  buffer_offset = 0;
-@@ -580,9 +580,27 @@
+@@ -580,9 +708,27 @@
  		csiphy_dev->hw_version = CSIPHY_VERSION_V213;
  		csiphy_dev->is_divisor_32_comp = true;
  		csiphy_dev->clk_lane = 0;
