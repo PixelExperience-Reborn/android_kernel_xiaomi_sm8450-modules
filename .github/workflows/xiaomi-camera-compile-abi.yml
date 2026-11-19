@@ -5,6 +5,7 @@ on:
     branches: [bringup/a17-mondrian-oem-bsp-20261111]
     paths:
       - .github/workflows/xiaomi-camera-compile-abi.yml
+      - patches/mondrian-m11a-csiphy.patch
       - tools/apply_xiaomi_camera_clang23_fix.py
       - tests/test_xiaomi_camera_clang23_fix.py
       - tools/select_mondrian_pmic_flash.py
@@ -168,6 +169,14 @@ jobs:
             exit 1
           fi
           echo "[PASS] OEM PMIC selected; original GPIO356 sysfs branch gated" >> "$GITHUB_STEP_SUMMARY"
+      - name: Apply isolated mondrian M11A CSI PHY tuning to disposable Xiaomi Camera checkout
+        run: |
+          set -euo pipefail
+          test "$(git -C xiaomi-camera-source hash-object drivers/cam_sensor_module/cam_csiphy/cam_csiphy_soc.c)" = 5bfa19646ef62079a312db8eb2ecddd3ca9b701b
+          git -C xiaomi-camera-source apply --check "$GITHUB_WORKSPACE/patches/mondrian-m11a-csiphy.patch"
+          git -C xiaomi-camera-source apply "$GITHUB_WORKSPACE/patches/mondrian-m11a-csiphy.patch"
+          grep -Fq '"qcom,csiphy-v2.1.3-xiaomi-m11a"' xiaomi-camera-source/drivers/cam_sensor_module/cam_csiphy/cam_csiphy_soc.c
+          git -C xiaomi-camera-source diff --check
       - name: Compile Xiaomi camera.ko and cameralog.ko with OEM PMIC backend
         run: |
           set -euo pipefail
@@ -182,6 +191,7 @@ jobs:
             2>&1 | tee camera-compile-diagnostic.log
           test -s "$cam/camera.ko"
           test -s "$cam/cameralog.ko"
+          strings "$cam/camera.ko" | grep -Fx 'qcom,csiphy-v2.1.3-xiaomi-m11a'
       - name: Verify exact Qualcomm PMIC and generic I2C ELF symbols (no yudi GPIO356)
         run: |
           set -euo pipefail
