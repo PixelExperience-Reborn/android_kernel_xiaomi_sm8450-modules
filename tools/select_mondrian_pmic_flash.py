@@ -12,7 +12,7 @@ from pathlib import Path
 import subprocess
 
 CAMERA_SHA = "9ed4ce96d49c0759c6365627113c5f59c2407942"
-DTS_SHA = "277bad42ab5de773c5fdee48bee6b25ec7ccfd77"
+DTS_SHA = "24a99f33ea5324f3ac33e54d17dfe9a0009ef04a"
 OEM_DTS_SHA = "34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c"
 OEM_COMMON_BLOB = "e4e321d4d54353f0243b0283647528180baa3137"
 HEADER = Path("drivers/cam_sensor_module/cam_flash/cam_flash_dev.h")
@@ -74,7 +74,7 @@ def verify_policy(policy):
         "schema_version": 1, "project": "PixelExperience-Reborn",
         "android_base": "AOSP 17", "device": "mondrian", "soc": "SM8475",
         "selected_kernel_commit":
-            "c9c67329b427ba21dea10d7a6e404ff422f86c1a",
+            "ef722b7b3773dacc805a65fd42d022206001266a",
         "manufacturer_camera": {
             "repository": "MiCode/vendor_qcom_opensource_camera-kernel",
             "commit": CAMERA_SHA, "reference_device": "yudi",
