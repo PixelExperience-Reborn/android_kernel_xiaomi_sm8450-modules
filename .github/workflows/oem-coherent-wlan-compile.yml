@@ -71,7 +71,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees
-          ref: 07ab1faceb058e895c8d3ec01ec37e4e7657935c
+          ref: 277bad42ab5de773c5fdee48bee6b25ec7ccfd77
           path: device-tree
           submodules: recursive
           persist-credentials: false
@@ -329,7 +329,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git -C kernel rev-parse HEAD)" = c9c67329b427ba21dea10d7a6e404ff422f86c1a
-          test "$(git -C device-tree rev-parse HEAD)" = 07ab1faceb058e895c8d3ec01ec37e4e7657935c
+          test "$(git -C device-tree rev-parse HEAD)" = 277bad42ab5de773c5fdee48bee6b25ec7ccfd77
           test "$(git -C device-tree/upstream/xiaomi-dts rev-parse HEAD)" = 34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c
           test "$(git -C device-tree/upstream/xiaomi-camera-platform rev-parse HEAD)" = a59a63bd498b94074c41357a466874b99aec62a8
           python3 -m venv "$RUNNER_TEMP/pe-bsp-dt-venv"
@@ -368,6 +368,10 @@ jobs:
           assert board["goodix_udfps_oem_bindings_verified"] is True
           assert board["camera_pmic_oem_source_links_compiled"] is True
           assert camera["all_three_cape_base_dtb_links_resolved"] is True
+          assert camera["mondrian_m11a_csiphy2_and_4_bound"] is True
+          for variant in bases:
+              mapped = camera["per_board"][variant]["controller_paths"]["qcom,csiphy"]
+              assert len(mapped) == 6
           assert modules["camera_modules_included"] is True
           assert modules["production_boot_load_order_qualified"] is False
           for flag in ("production_camera_dtbo_approved", "physical_camera_hardware_tested"):
@@ -379,10 +383,11 @@ jobs:
               "device": "mondrian", "android_base": "AOSP 17",
               "kernel_commit": kernel_sha,
               "modules_commit": "${{ github.sha }}",
-              "devicetrees_commit": "07ab1faceb058e895c8d3ec01ec37e4e7657935c",
+              "devicetrees_commit": "277bad42ab5de773c5fdee48bee6b25ec7ccfd77",
               "coherent_kernel_modules_and_device_trees_compiled": True,
               "source_only_audio_speaker_and_mi2s_verified": True,
               "camera_cci_csiphy_controller_overlay_compiled": True,
+              "camera_m11a_csiphy2_and_4_compiled": True,
               "camera_sensor_routing_verified": False,
               "m11a_lhbm_hardware_verified": False,
               "goodix_udfps_hardware_verified": False,
