@@ -11,7 +11,7 @@ reference **only**; no Lineage driver, DTS or ROM base is selected.
 | --- | --- |
 | Kernel: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450` | `ef722b7b3773dacc805a65fd42d022206001266a` |
 | Modules: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules` | current active bringup PR head, recorded by the CI run |
-| Devicetrees: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees` | `24a99f33ea5324f3ac33e54d17dfe9a0009ef04a` |
+| Devicetrees: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees` | `ccddf20d0d5f546b45e8d65df6b3c9de59825f48` |
 | Xiaomi original kernel DT: `MiCode/kernel_devicetree` | `34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c` |
 | Xiaomi original Camera Kernel | `9ed4ce96d49c0759c6365627113c5f59c2407942` |
 | Xiaomi original Cape Camera platform | `a59a63bd498b94074c41357a466874b99aec62a8` |
@@ -33,7 +33,7 @@ report explicitly keeps production `modules.load`, `boot.img`,
 
 | Track | Source and static build evidence | Still blocking completion |
 | --- | --- | --- |
-| Camera | OEM `camera.ko`/`cameralog.ko`, CCI0/1, six CSIPHY, CPAS, WL2866D and PM8350C source; compile and kernel ABI passes | Exact mondrian sensors, CSI routes, EEPROM, autofocus, camera power sequences, PM8350C physical channel and Camera HAL/hardware tests |
+| Camera | OEM camera modules, WL2866D, four sensor/EEPROM routes, wide actuator and three rear flash consumers on PM8350C channel 0. The diagnostic module resolves the wide sensor's four shared TLMM GPIOs at bind time. | Sensor IDs, EEPROM reads, autofocus, power transitions, torch/flash and camera HAL on physical mondrian |
 | Audio | Original mondrian I2C15 AW882xx pair (0x34/0x35), MI2S2 pins and TLMM mapping verified in **all three compiled OEM Cape DTBs** | Compatible source-based Audio kernel/codec driver, DSP/ALSA calibration, HAL and real speaker/mic/receiver/call tests |
 | Display M11A | Qualcomm SDE/DSI and OEM display modules compile | Exact original panel description/DCS/DSC, stable LHBM state transitions and physical display test |
 | UDFPS/Goodix | OEM Goodix SPI and FOD kernel modules, verified original DTS binding/firmware names | LHBM coordination, panel notifier and Goodix runtime tests, AOSP17 fingerprint HAL |
@@ -52,8 +52,6 @@ report explicitly keeps production `modules.load`, `boot.img`,
    dependencies; use disposable workspaces for audited compiler fixes.
 5. Hardware validation must occur on a physical mondrian before release.
 
-Next after green three-repo CI: complete missing native Camera hardware
-identification and original source-based driver/ABI mapping, then
-Audio kernel/codec, M11A/LHBM, UDFPS/Goodix, and final image/device
-tests. Avoid repeating already confirmed Camera controller or Kernel
-compilation stages without a reproducible regression.
+Next camera bring-up step: probe the sensors and read all four EEPROMs with
+the matching vendor camera HAL, including the ultrawide EEPROM reset setting.
+Verify focus and flash on a physical mondrian before packaging the camera module.

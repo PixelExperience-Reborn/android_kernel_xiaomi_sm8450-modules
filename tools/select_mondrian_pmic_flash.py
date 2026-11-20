@@ -12,7 +12,7 @@ from pathlib import Path
 import subprocess
 
 CAMERA_SHA = "9ed4ce96d49c0759c6365627113c5f59c2407942"
-DTS_SHA = "24a99f33ea5324f3ac33e54d17dfe9a0009ef04a"
+DTS_SHA = "ccddf20d0d5f546b45e8d65df6b3c9de59825f48"
 OEM_DTS_SHA = "34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c"
 OEM_COMMON_BLOB = "e4e321d4d54353f0243b0283647528180baa3137"
 HEADER = Path("drivers/cam_sensor_module/cam_flash/cam_flash_dev.h")
@@ -36,6 +36,7 @@ ORIGINAL_CHANGED = {
 EXPECTED_POLICY = {
     "backend": "Qualcomm PM8350C",
     "driver_configuration": "pmic_from_device_tree",
+    "mondrian_diagnostic_switch0_mask": 1,
     "manufacturer_yudi_i2c_sysfs_gpio356_enabled": False,
     "mutter_flash_mask_hardware_qualified": False,
     "mondrian_oem_camera_dtbo_verified": False,
@@ -168,6 +169,7 @@ def main():
                 "kernel_commit": policy["selected_kernel_commit"],
                 "oem_device_tree_commit": OEM_DTS_SHA,
                 "flash_backend": "Qualcomm PM8350C",
+                "mondrian_diagnostic_switch0_mask": policy["flash_selection"]["mondrian_diagnostic_switch0_mask"],
                 "unqualified_yudi_i2c_gpio356_compiled": False
                     if args.apply else None,
                 "modified_header_sha1": hashblob(adjusted),
@@ -181,7 +183,7 @@ def main():
         ap.error(str(exc))
     print("[PASS] " + ("Selected" if args.apply else "Validated") +
           " OEM PM8350C path; yudi auxiliary GPIO356 backend forbidden")
-    print("[PENDING] Manufacturer mondrian Camera DTBO/LED mask and hardware")
+    print("[PENDING] PM8350C torch and flash on physical mondrian")
 
 
 if __name__ == "__main__":
