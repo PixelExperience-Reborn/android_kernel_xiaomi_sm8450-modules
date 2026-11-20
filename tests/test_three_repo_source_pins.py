@@ -6,7 +6,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 KERNEL = "c9c67329b427ba21dea10d7a6e404ff422f86c1a"
-DEVICE_TREES = "07ab1faceb058e895c8d3ec01ec37e4e7657935c"
+DEVICE_TREES = "277bad42ab5de773c5fdee48bee6b25ec7ccfd77"
 
 
 class ThreeRepositorySourceGateTests(unittest.TestCase):
@@ -21,6 +21,9 @@ class ThreeRepositorySourceGateTests(unittest.TestCase):
         self.assertEqual(self.policy["xiaomi_device_tree"]["commit"], DEVICE_TREES)
         self.assertEqual(self.policy["selected_kernel_commit"], KERNEL)
         self.assertIn('DTS_SHA = "' + DEVICE_TREES + '"', self.selector)
+        self.assertIn('assert camera["mondrian_m11a_csiphy2_and_4_bound"] is True',
+                      self.coherent)
+        self.assertIn('camera_m11a_csiphy2_and_4_compiled', self.coherent)
         for workflow in (self.coherent, self.standalone):
             self.assertIn("repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees\n"
                           "          ref: " + DEVICE_TREES, workflow)

@@ -13,7 +13,7 @@
   },
   "xiaomi_device_tree": {
     "repository": "PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees",
-    "commit": "07ab1faceb058e895c8d3ec01ec37e4e7657935c",
+    "commit": "277bad42ab5de773c5fdee48bee6b25ec7ccfd77",
     "manufacturer_repository": "MiCode/kernel_devicetree",
     "manufacturer_commit": "34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c",
     "common_dts_git_blob": "e4e321d4d54353f0243b0283647528180baa3137"
