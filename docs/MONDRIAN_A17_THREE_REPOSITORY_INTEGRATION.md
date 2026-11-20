@@ -11,7 +11,7 @@ reference **only**; no Lineage driver, DTS or ROM base is selected.
 | --- | --- |
 | Kernel: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450` | `ef722b7b3773dacc805a65fd42d022206001266a` |
 | Modules: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules` | current active bringup PR head, recorded by the CI run |
-| Devicetrees: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees` | `ccddf20d0d5f546b45e8d65df6b3c9de59825f48` |
+| Devicetrees: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees` | `04416a756cb3839638584da575e460d4ee8657ae` |
 | Xiaomi original kernel DT: `MiCode/kernel_devicetree` | `34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c` |
 | Xiaomi original Camera Kernel | `9ed4ce96d49c0759c6365627113c5f59c2407942` |
 | Xiaomi original Cape Camera platform | `a59a63bd498b94074c41357a466874b99aec62a8` |
@@ -33,7 +33,7 @@ report explicitly keeps production `modules.load`, `boot.img`,
 
 | Track | Source and static build evidence | Still blocking completion |
 | --- | --- | --- |
-| Camera | OEM camera modules, WL2866D, four sensor/EEPROM routes, wide actuator and three rear flash consumers on PM8350C channel 0. The diagnostic module resolves the wide sensor's four shared TLMM GPIOs at bind time. | Sensor IDs, EEPROM reads, autofocus, power transitions, torch/flash and camera HAL on physical mondrian |
+| Camera | Seven factory CamX profiles map to four slots. The ultrawide P24C64F uses WL2866D AVDD1 for power. Its DT node no longer aliases MCLK1 as EEPROM reset. The wide actuator and three rear flash consumers are linked. | Wide AK7323 OIS hookup, sensor ID and EEPROM reads, autofocus, power transitions and flash on physical mondrian |
 | Audio | Original mondrian I2C15 AW882xx pair (0x34/0x35), MI2S2 pins and TLMM mapping verified in **all three compiled OEM Cape DTBs** | Compatible source-based Audio kernel/codec driver, DSP/ALSA calibration, HAL and real speaker/mic/receiver/call tests |
 | Display M11A | Qualcomm SDE/DSI and OEM display modules compile | Exact original panel description/DCS/DSC, stable LHBM state transitions and physical display test |
 | UDFPS/Goodix | OEM Goodix SPI and FOD kernel modules, verified original DTS binding/firmware names | LHBM coordination, panel notifier and Goodix runtime tests, AOSP17 fingerprint HAL |
@@ -52,6 +52,7 @@ report explicitly keeps production `modules.load`, `boot.img`,
    dependencies; use disposable workspaces for audited compiler fixes.
 5. Hardware validation must occur on a physical mondrian before release.
 
-Next camera bring-up step: probe the sensors and read all four EEPROMs with
-the matching vendor camera HAL, including the ultrawide EEPROM reset setting.
-Verify focus and flash on a physical mondrian before packaging the camera module.
+Both wide CamX profiles select AK7323 optical stabilization. Identify its
+actual board connection and power sequence before adding the wide sensor's
+`ois-src` reference. The expected sensor IDs and EEPROM wire addresses
+for hardware bring-up are in the camera DT build artifact.

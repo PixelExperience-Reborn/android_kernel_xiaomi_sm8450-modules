@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees
-          ref: ccddf20d0d5f546b45e8d65df6b3c9de59825f48
+          ref: 04416a756cb3839638584da575e460d4ee8657ae
           path: device-tree
           persist-credentials: false
       - name: Reject unqualified source or kernel revision
@@ -50,7 +50,7 @@ jobs:
           set -euo pipefail
           python3 tools/verify_xiaomi_camera_submodule.py
           test "$(git -C kernel rev-parse HEAD)" = ef722b7b3773dacc805a65fd42d022206001266a
-          test "$(git -C device-tree rev-parse HEAD)" = ccddf20d0d5f546b45e8d65df6b3c9de59825f48
+          test "$(git -C device-tree rev-parse HEAD)" = 04416a756cb3839638584da575e460d4ee8657ae
           test "$(git -C xiaomi-camera-source rev-parse HEAD)" = 9ed4ce96d49c0759c6365627113c5f59c2407942
           test "$(git -C upstream/qualcomm/mmrm rev-parse HEAD)" = "$(git ls-tree HEAD upstream/qualcomm/mmrm | awk '{print $3}')"
           test "$(git -C xiaomi-camera-source rev-parse 'HEAD^{tree}')" = e8fadfd2127cb9e12696273e1661ead9f9a70c89

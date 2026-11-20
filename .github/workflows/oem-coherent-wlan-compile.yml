@@ -73,7 +73,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees
-          ref: ccddf20d0d5f546b45e8d65df6b3c9de59825f48
+          ref: 04416a756cb3839638584da575e460d4ee8657ae
           path: device-tree
           submodules: recursive
           persist-credentials: false
@@ -334,7 +334,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git -C kernel rev-parse HEAD)" = ef722b7b3773dacc805a65fd42d022206001266a
-          test "$(git -C device-tree rev-parse HEAD)" = ccddf20d0d5f546b45e8d65df6b3c9de59825f48
+          test "$(git -C device-tree rev-parse HEAD)" = 04416a756cb3839638584da575e460d4ee8657ae
           test "$(git -C device-tree/upstream/xiaomi-dts rev-parse HEAD)" = 34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c
           test "$(git -C device-tree/upstream/xiaomi-camera-platform rev-parse HEAD)" = a59a63bd498b94074c41357a466874b99aec62a8
           python3 -m venv "$RUNNER_TEMP/pe-bsp-dt-venv"
@@ -390,12 +390,16 @@ jobs:
               "device": "mondrian", "android_base": "AOSP 17",
               "kernel_commit": kernel_sha,
               "modules_commit": "${{ github.sha }}",
-              "devicetrees_commit": "ccddf20d0d5f546b45e8d65df6b3c9de59825f48",
+              "devicetrees_commit": "04416a756cb3839638584da575e460d4ee8657ae",
               "coherent_kernel_modules_and_device_trees_compiled": True,
               "source_only_audio_speaker_and_mi2s_verified": True,
               "camera_cci_csiphy_controller_overlay_compiled": True,
               "camera_m11a_csiphy2_and_4_compiled": True,
               "camera_four_sensor_eeprom_routes_linked": camera["board_sensor_eeprom_routes_linked"],
+              "camera_factory_sensor_by_slot": {
+                  str(slot["camera_id"]): slot["sensor"]
+                  for slot in camera["factory_camera_hal_profiles"]["slots"]
+              },
               "camera_rear_flash_switch0_mask": camera["board_rear_flash_switch0_mask"],
               "camera_sensor_routing_verified": False,
               "m11a_lhbm_hardware_verified": False,
