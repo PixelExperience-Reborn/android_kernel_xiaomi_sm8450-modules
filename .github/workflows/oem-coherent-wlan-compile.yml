@@ -1,4 +1,4 @@
-name: Qualify coherent mondrian OEM Image, Display, WLAN, MMRM, Camera and critical modules
+name: Qualify coherent mondrian OEM Image, Display, WLAN, MMRM, Camera, Audio and Video
 
 on:
   push:
@@ -8,6 +8,12 @@ on:
   pull_request:
     paths:
       - .github/workflows/oem-coherent-wlan-compile.yml
+      - .gitmodules
+      - upstream/xiaomi-audio
+      - upstream/qualcomm/video
+      - tools/build_mondrian_audio_video.sh
+      - tools/verify_mondrian_audio_video_sources.py
+      - tests/test_mondrian_audio_video_sources.py
       - tools/audit_mondrian_kernel_module_inventory.py
       - tests/test_kernel_module_inventory.py
       - tools/stage_mondrian_wlan_kmi.py
@@ -43,6 +49,8 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -v
           python3 tools/verify_xiaomi_camera_submodule.py
+          python3 tools/verify_mondrian_audio_video_sources.py
+          bash -n tools/build_mondrian_audio_video.sh
           python3 tools/verify_oem_wlan.py
           python3 tools/apply_oem_wlan_fix.py
           python3 tools/verify_qcom_mmrm.py
@@ -58,7 +66,7 @@ jobs:
   external-wlan:
     needs: source
     runs-on: ubuntu-24.04
-    timeout-minutes: 75
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
@@ -271,7 +279,9 @@ jobs:
             --out "$RUNNER_TEMP/camera-pmic-elf-evidence.json"
           echo "[PASS] Xiaomi Camera modules compiled with OEM Image, MMRM and Qualcomm PMIC" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] mondrian hardware sensors/LED channel/Android Camera HAL" >> "$GITHUB_STEP_SUMMARY"
-      - name: Verify WLAN/MMRM/Display/Camera and critical OEM module dependency closures
+      - name: Build Xiaomi Qualcomm Audio, AW882xx and Qualcomm VIDC against exact OEM kernel
+        run: bash tools/build_mondrian_audio_video.sh
+      - name: Verify WLAN/MMRM/Display/Camera/Audio/Video and critical OEM module dependency closures
         run: |
           set -euo pipefail
           # Import the same 15-module source contract as the compiled inventory
@@ -288,6 +298,12 @@ jobs:
           args=()
           for ko in "${critical_roots[@]}"; do
             args+=(--audit-oem-root "$ko")
+          done
+          # All built audio outputs are diagnostic roots, never a product load list.
+          mapfile -t media_roots < "$RUNNER_TEMP/mondrian-media-roots.txt"
+          test "${#media_roots[@]}" -gt 2
+          for ko in "${media_roots[@]}"; do
+            args+=(--external-root "$ko")
           done
           python3 tools/stage_mondrian_wlan_kmi.py \
             --kernel kernel \
@@ -386,6 +402,10 @@ jobs:
               mapped = camera["per_board"][variant]["controller_paths"]["qcom,csiphy"]
               assert len(mapped) == 6
           assert modules["camera_modules_included"] is True
+          media_roots = set(modules["additional_external_roots"])
+          assert {"machine_dlkm", "aw882xx_dlkm", "q6_dlkm", "gpr_dlkm", "msm_video"} <= media_roots
+          assert media_roots <= set(modules["staged_module_order"])
+          assert media_roots == set(modules["modprobe_additional_external_roots"])
           assert modules["production_boot_load_order_qualified"] is False
           for flag in ("production_camera_dtbo_approved", "physical_camera_hardware_tested"):
               assert camera[flag] is False
@@ -411,7 +431,9 @@ jobs:
               "m11a_camera_board_dtb_sha256": {name: info["sha256"] for name, info in display["boards"].items()},
               "m11a_lhbm_hardware_verified": False,
               "goodix_udfps_hardware_verified": False,
+              "audio_video_kernel_compile_and_dependency_closure_verified": True,
               "audio_kernel_driver_verified": False,
+              "video_hardware_verified": False,
               "audio_hal_and_hardware_verified": False,
               "production_boot_dtbo_and_modules_load_approved": False,
               "input_evidence_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
@@ -419,7 +441,7 @@ jobs:
           }
           output_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
           print("[PASS] Exact Kernel + Camera/Audio OEM DTB and external module diagnostic closure")
-          print("[PENDING] M11A panel-on commands and LHBM on hardware, UDFPS runtime, Audio driver+HAL, sensors, product images")
+          print("[PENDING] M11A panel-on commands and LHBM on hardware, UDFPS runtime, Audio/Video HAL and physical runtime, sensors, product images")
           PY
           echo "[PASS] Three-repository OEM Image/Modules/Camera/Audio-DTB diagnostic build" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] Production boot/DTBO/modules.load and physical Camera/Audio/LHBM/UDFPS" >> "$GITHUB_STEP_SUMMARY"
@@ -440,7 +462,7 @@ jobs:
             test -s "$file" || { echo "::error::missing diagnostic artifact: $file"; exit 1; }
           done
           test "$(git -C kernel rev-parse HEAD)" = c67ed74ffe11bd2133b560078a20cf0c04e18d97
-          python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["kernel_commit"]==sys.argv[2] and d["display_module_included"] and d["all_root_dry_run_union_matches_staged_closure"] and d["camera_modules_included"] and d["camera_modules_are_diagnostic_only"] and len(d["checked_module_roots"])==20 and len(d["audited_oem_roots"])==15 and not d["production_boot_load_order_qualified"]' \
+          python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["kernel_commit"]==sys.argv[2] and d["display_module_included"] and d["all_root_dry_run_union_matches_staged_closure"] and d["camera_modules_included"] and d["camera_modules_are_diagnostic_only"] and len(d["checked_module_roots"])==20+len(d["additional_external_roots"]) and len(d["audited_oem_roots"])==15 and {"machine_dlkm","aw882xx_dlkm","q6_dlkm","gpr_dlkm","msm_video"}<=set(d["additional_external_roots"]) and not d["production_boot_load_order_qualified"]' \
             "$manifest" c67ed74ffe11bd2133b560078a20cf0c04e18d97
           sha256sum "$image" "$symvers" "$config" "$display" "$wlan" "$mmrm" "$camera" "$cameralog" "$manifest" "$inventory" \
             > "$RUNNER_TEMP/mondrian-stage/diagnostic-sha256.txt"
@@ -463,6 +485,10 @@ jobs:
             kernel/techpack/display/msm/msm_drm.ko
             xiaomi-camera-source/camera.ko
             xiaomi-camera-source/cameralog.ko
+            upstream/xiaomi-audio/**/*.ko
+            upstream/qualcomm/video/msm_video.ko
+            ${{ runner.temp }}/mondrian-media-*
+            ${{ runner.temp }}/media-abi/
             ${{ runner.temp }}/camera-oem-build.log
             ${{ runner.temp }}/camera-clang23-fix-evidence.json
             ${{ runner.temp }}/camera-pmic-selection-evidence.json

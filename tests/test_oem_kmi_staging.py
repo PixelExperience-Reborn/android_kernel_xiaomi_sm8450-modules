@@ -225,6 +225,21 @@ class ModuleStagingTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "missing: msm_mmrm"):
                 module.compute_closure(("camera",), paths)
 
+    def test_audio_video_external_roots_share_mmrm_and_oem_dependencies(self):
+        names = ("msm_mmrm", "msm_video", "machine_dlkm", "aw882xx_dlkm", "q6_dlkm", "snd_soc_core")
+        files = {name: Path(name + ".ko") for name in names}
+        graph = {
+            "msm_mmrm": [], "msm_video": ["msm_mmrm"],
+            "machine_dlkm": ["q6_dlkm", "snd_soc_core"],
+            "aw882xx_dlkm": ["q6_dlkm", "snd_soc_core"],
+            "q6_dlkm": [], "snd_soc_core": [],
+        }
+        with patch.object(module, "dependencies", side_effect=lambda p: graph[p.stem]):
+            order = module.compute_closure(("msm_video", "machine_dlkm", "aw882xx_dlkm"), files)
+        self.assertEqual(set(order), set(names))
+        self.assertLess(order.index("msm_mmrm"), order.index("msm_video"))
+        self.assertLess(order.index("q6_dlkm"), order.index("aw882xx_dlkm"))
+
     def test_config_parser(self):
         with tempfile.TemporaryDirectory() as root:
             p = Path(root) / ".config"

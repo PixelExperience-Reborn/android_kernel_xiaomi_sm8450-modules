@@ -42,7 +42,14 @@ def validate_gitmodules(text):
     ):
         if key not in config or dict(config[key]) != {"path": path, "url": url}:
             raise ValueError("existing OEM WLAN/MMRM source selection changed")
-    if len(config.sections()) != 3:
+    for path, url in (
+        ("upstream/xiaomi-audio", "https://github.com/MiCode/vendor_qcom_opensource_audio-kernel.git"),
+        ("upstream/qualcomm/video", "https://git.codelinaro.org/clo/la/platform/vendor/opensource/video-driver.git"),
+    ):
+        key = 'submodule "' + path + '"'
+        if key not in config or dict(config[key]) != {"path": path, "url": url}:
+            raise ValueError("unexpected Audio/Video source selection")
+    if len(config.sections()) != 5:
         raise ValueError("unexpected extra Git submodules in mondrian BSP")
 
 

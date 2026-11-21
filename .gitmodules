@@ -7,3 +7,9 @@
 [submodule "xiaomi-camera-source"]
 	path = xiaomi-camera-source
 	url = https://github.com/MiCode/vendor_qcom_opensource_camera-kernel.git
+[submodule "upstream/xiaomi-audio"]
+	path = upstream/xiaomi-audio
+	url = https://github.com/MiCode/vendor_qcom_opensource_audio-kernel.git
+[submodule "upstream/qualcomm/video"]
+	path = upstream/qualcomm/video
+	url = https://git.codelinaro.org/clo/la/platform/vendor/opensource/video-driver.git

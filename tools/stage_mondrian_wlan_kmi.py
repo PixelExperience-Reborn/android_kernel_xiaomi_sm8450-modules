@@ -142,6 +142,8 @@ def main():
                    help="Optional OEM Xiaomi cameralog.ko, only with --camera")
     p.add_argument("--audit-oem-root", action="append", default=[], metavar="BASENAME.ko",
                    help="Independently verify one compiled OEM module's diagnostic depmod closure")
+    p.add_argument("--external-root", type=Path, action="append", default=[],
+                   help="Additional compiled external diagnostic root (repeatable)")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--expected-kernel-commit", default=KERNEL_SHA,
                    help="Exact checked-out kernel SHA (defaults to reviewed OEM-only commit)")
@@ -176,7 +178,12 @@ def main():
     camera = args.camera.resolve() if args.camera is not None else None
     cameralog = args.cameralog.resolve() if args.cameralog is not None else None
     camera_modules = (camera, cameralog) if camera is not None else ()
-    external_modules = (wlan, mmrm) + ((display,) if display is not None else ()) + camera_modules
+    extra_roots = tuple(path.resolve() for path in args.external_root)
+    external_modules = (wlan, mmrm) + ((display,) if display is not None else ()) + camera_modules + extra_roots
+    if len(set(external_modules)) != len(external_modules):
+        p.error("Duplicate external module path")
+    if len({path.name for path in external_modules}) != len(external_modules):
+        p.error("Duplicate external module filename")
     for external in external_modules:
         if not external.is_file():
             p.error(f"External module must be compiled before staging: {external}")
@@ -211,6 +218,8 @@ def main():
         ((display_name,) if display_name else ()) +
         ((camera_name, cameralog_name) if camera is not None else ())
     )
+    extra_names = tuple(module_name(path) for path in extra_roots)
+    initial_roots += extra_names
     try:
         audited_roots = verify_oem_diagnostic_roots(
             args.audit_oem_root, oem_by_basename, set(initial_roots))
@@ -225,7 +234,8 @@ def main():
                        wlan.parent, mmrm.parent,
                        *((display.parent,) if display is not None else ()),
                        *((camera.parent, cameralog.parent)
-                         if camera is not None else ())))
+                         if camera is not None else ()),
+                       *(path.parent for path in extra_roots)))
     except ValueError as error:
         p.error(str(error))
     dest.mkdir(parents=True, exist_ok=False)
@@ -272,6 +282,11 @@ def main():
                        "--show-depends", root]).splitlines()
         for root in audited_roots
     }
+    checked_extra = {
+        root: command(["modprobe", "-d", dest, "-S", release,
+                       "--show-depends", root]).splitlines()
+        for root in extra_names
+    }
     expected = {Path(s).name for s in mapping.values()}
     wlan_actual = insmod_basenames(checked_wlan)
     mmrm_actual = insmod_basenames(checked_mmrm)
@@ -291,6 +306,11 @@ def main():
         loaded = insmod_basenames(dry_run)
         if files[root].name not in loaded:
             p.error("modprobe dry-run omitted critical OEM root: " + root)
+        actual.update(loaded)
+    for root, dry_run in checked_extra.items():
+        loaded = insmod_basenames(dry_run)
+        if files[root].name not in loaded:
+            p.error("modprobe dry-run omitted external root: " + root)
         actual.update(loaded)
     missing = expected - actual
     unexpected = actual - expected
@@ -314,6 +334,8 @@ def main():
         "camera_modules_included": camera is not None,
         "camera_modules_are_diagnostic_only": True,
         "audited_oem_roots": list(audited_roots),
+        "additional_external_roots": list(extra_names),
+        "modprobe_additional_external_roots": checked_extra,
         "modprobe_oem_diagnostic_roots": checked_oem,
         "production_boot_load_order_qualified": False,
         "display_module_included": display is not None,
