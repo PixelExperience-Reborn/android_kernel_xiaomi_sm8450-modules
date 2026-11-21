@@ -1,0 +1,97 @@
+name: Audit Xiaomi SM8475 Camera source only (not a production driver)
+
+on:
+  push:
+    branches: [bringup/a17-mondrian-oem-bsp-20261111]
+    paths:
+      - .github/workflows/xiaomi-camera-source-audit.yml
+      - camera-bsp-candidate.json
+      - .gitmodules
+      - xiaomi-camera-source
+      - tools/verify_xiaomi_camera_submodule.py
+      - tests/test_xiaomi_camera_submodule.py
+      - docs/MONDRIAN_XIAOMI_CAMERA_SOURCE_GATE.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  xiaomi-camera-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Reject unqualified kernel or source provenance
+        run: |
+          set -euo pipefail
+          python3 tools/verify_xiaomi_camera_submodule.py
+          python3 -m unittest discover -s tests -p 'test_xiaomi_camera_submodule.py' -v
+          python3 - <<'PY'
+          import json
+          p = json.load(open("camera-bsp-candidate.json"))
+          assert p["project"] == "PixelExperience-Reborn"
+          assert p["android_base"] == "AOSP 17"
+          assert p["device"] == "mondrian" and p["soc"] == "SM8475"
+          assert p["kernel"] == {"repository":"PixelExperience-Reborn/android_kernel_xiaomi_sm8450","commit":"478fac56b3cdfc3164ed4dca3389346d800e7593","version":"5.10.81"}
+          c = p["manufacturer_candidate"]
+          assert c["repository"] == "MiCode/vendor_qcom_opensource_camera-kernel"
+          assert c["branch"] == "yudi-t-oss"
+          assert c["reference_device"] == "yudi" and c["reference_soc"] == "SM8475"
+          assert c["commit"] == "9ed4ce96d49c0759c6365627113c5f59c2407942"
+          assert c["tree_sha"] == "e8fadfd2127cb9e12696273e1661ead9f9a70c89"
+          assert c["original_targets"] == ["camera.ko", "cameralog.ko"]
+          assert p["status"] == "SOURCE_ONLY_CANDIDATE_NOT_BUILT"
+          assert all(v is False for v in p["qualification"].values())
+          assert p["policy"] == {"xiaomi_source_only":True,"lineage_code_imported":False,"fm_radio_selected":False}
+          expected = {
+              "Kbuild": "e8c67007eb4f1430adedbc6e7a8cd4629391247a",
+              "Makefile": "3964a33c99889783260ca606c0ebae175ace6271",
+              "config/cape.mk": "84c346c350638445b0b2930e4341ec6a050e89d6",
+              "config/waipio.mk": "61a5a023bc34908dc7f3285b66b0c3b1d23b205b",
+              "Android.mk": "b9897d7d73a62fee521cd988792f2a0a61ce1b38",
+              "board.mk": "925fc4866b6c89fd8ae9f4f0165155620a70541d",
+          }
+          assert c["file_blob_sha1"] == expected
+          PY
+          test "$(git -C xiaomi-camera-source rev-parse HEAD)" = 9ed4ce96d49c0759c6365627113c5f59c2407942
+          test "$(git -C xiaomi-camera-source rev-parse 'HEAD^{tree}')" = e8fadfd2127cb9e12696273e1661ead9f9a70c89
+          test "$(git -C xiaomi-camera-source hash-object Kbuild)" = e8c67007eb4f1430adedbc6e7a8cd4629391247a
+          test "$(git -C xiaomi-camera-source hash-object Makefile)" = 3964a33c99889783260ca606c0ebae175ace6271
+          test "$(git -C xiaomi-camera-source hash-object config/cape.mk)" = 84c346c350638445b0b2930e4341ec6a050e89d6
+          test "$(git -C xiaomi-camera-source hash-object config/waipio.mk)" = 61a5a023bc34908dc7f3285b66b0c3b1d23b205b
+          test "$(git -C xiaomi-camera-source hash-object Android.mk)" = b9897d7d73a62fee521cd988792f2a0a61ce1b38
+          test "$(git -C xiaomi-camera-source hash-object board.mk)" = 925fc4866b6c89fd8ae9f4f0165155620a70541d
+      - name: Inspect manufacturer Cape Waipio Kbuild and Qualcomm MMRM contract
+        run: |
+          set -euo pipefail
+          src=xiaomi-camera-source
+          grep -Fq 'ifeq ($(CONFIG_ARCH_CAPE), y)' "$src/Kbuild"
+          grep -Fq 'include $(CAMERA_KERNEL_ROOT)/config/cape.mk' "$src/Kbuild"
+          grep -Fq 'ifeq ($(CONFIG_ARCH_WAIPIO), y)' "$src/Kbuild"
+          grep -Fq 'include $(CAMERA_KERNEL_ROOT)/config/waipio.mk' "$src/Kbuild"
+          grep -Fq 'obj-m += camera.o' "$src/Kbuild"
+          grep -Eq '^obj-m[[:space:]]*\+=[[:space:]]*cameralog\.o$' "$src/Kbuild"
+          grep -Fq 'CONFIG_SPECTRA_SENSOR := y' "$src/config/cape.mk"
+          grep -Fq 'CONFIG_SPECTRA_ISP := y' "$src/config/cape.mk"
+          grep -Fq 'CONFIG_SPECTRA_SENSOR := y' "$src/config/waipio.mk"
+          grep -Fq 'CONFIG_SPECTRA_ISP := y' "$src/config/waipio.mk"
+          grep -Fq 'KBUILD_CPPFLAGS += -DCONFIG_MSM_MMRM=1' "$src/config/cape.mk"
+          grep -Fq 'KBUILD_CPPFLAGS += -DCONFIG_MSM_MMRM=1' "$src/config/waipio.mk"
+          grep -Fq 'ifeq ($(TARGET_BOARD_PLATFORM), taro)' "$src/Android.mk"
+          grep -Fq 'KBUILD_EXTRA_SYMBOLS' "$src/Android.mk"
+          grep -Fq 'mmrm-module-symvers' "$src/Android.mk"
+          grep -Fq 'camera.ko' "$src/board.mk"
+          grep -Fq 'cameralog.ko' "$src/board.mk"
+          echo "[PASS] Xiaomi-pinned source, Cape/Waipio module targets and MMRM inputs" >> "$GITHUB_STEP_SUMMARY"
+          echo "[PENDING] No camera.ko or cameralog.ko ABI, sensor firmware or hardware boot" >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve unmodified source evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mondrian-xiaomi-camera-source-audit
+          path: camera-bsp-candidate.json
+          retention-days: 7

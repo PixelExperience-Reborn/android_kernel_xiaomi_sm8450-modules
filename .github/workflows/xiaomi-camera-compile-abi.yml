@@ -1,0 +1,242 @@
+name: Diagnostic Xiaomi SM8475 Camera build and OEM ABI (not production)
+
+on:
+  push:
+    branches: [bringup/a17-mondrian-oem-bsp-20261111]
+    paths:
+      - .github/workflows/xiaomi-camera-compile-abi.yml
+      - patches/mondrian-m11a-csiphy.patch
+      - patches/mondrian-wl2866d-power-rollback.patch
+      - patches/mondrian-camera-shared-pinctrl-gpios.patch
+      - tools/apply_xiaomi_camera_clang23_fix.py
+      - tests/test_xiaomi_camera_clang23_fix.py
+      - tools/select_mondrian_pmic_flash.py
+      - tests/test_mondrian_pmic_flash.py
+      - tools/verify_mondrian_camera_elf.py
+      - tests/test_mondrian_camera_elf.py
+      - mondrian-camera-flash-policy.json
+      - .gitmodules
+      - xiaomi-camera-source
+      - tools/verify_xiaomi_camera_submodule.py
+      - tests/test_xiaomi_camera_submodule.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  camera-abi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450
+          ref: 478fac56b3cdfc3164ed4dca3389346d800e7593
+          path: kernel
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees
+          ref: f761ca2286509217dbebd298fcfc8516f7d16043
+          path: device-tree
+          persist-credentials: false
+      - name: Reject unqualified source or kernel revision
+        run: |
+          set -euo pipefail
+          python3 tools/verify_xiaomi_camera_submodule.py
+          test "$(git -C kernel rev-parse HEAD)" = 478fac56b3cdfc3164ed4dca3389346d800e7593
+          test "$(git -C device-tree rev-parse HEAD)" = f761ca2286509217dbebd298fcfc8516f7d16043
+          test "$(git -C xiaomi-camera-source rev-parse HEAD)" = 9ed4ce96d49c0759c6365627113c5f59c2407942
+          test "$(git -C upstream/qualcomm/mmrm rev-parse HEAD)" = "$(git ls-tree HEAD upstream/qualcomm/mmrm | awk '{print $3}')"
+          test "$(git -C xiaomi-camera-source rev-parse 'HEAD^{tree}')" = e8fadfd2127cb9e12696273e1661ead9f9a70c89
+          grep -Fx 'SUBLEVEL = 81' kernel/Makefile
+          python3 - <<'PY'
+          import json
+          d = json.load(open("camera-bsp-candidate.json"))
+          assert d["device"] == "mondrian" and d["soc"] == "SM8475"
+          assert d["kernel"]["commit"] == "478fac56b3cdfc3164ed4dca3389346d800e7593"
+          assert d["manufacturer_candidate"]["commit"] == "9ed4ce96d49c0759c6365627113c5f59c2407942"
+          assert d["status"] == "SOURCE_ONLY_CANDIDATE_NOT_BUILT"
+          assert not any(d["qualification"].values())
+          PY
+          test -f xiaomi-camera-source/Kbuild
+          test -f xiaomi-camera-source/config/cape.mk
+          test -f xiaomi-camera-source/config/waipio.mk
+          test -f upstream/qualcomm/mmrm/driver/Kbuild
+      - name: Install pinned OEM kernel build prerequisites
+        timeout-minutes: 13
+        run: bash tools/install_ci_prerequisites.sh
+      - name: Restore known Google Android LLVM23 compiler
+        id: clang-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/google-clang
+          key: mondrian-a17-clang-r614150-c9ed23e2ba198658b630d4b10e09fa980cd43119
+      - name: Restore exact LLVM23 toolchain when cache misses
+        if: steps.clang-cache.outputs.cache-hit != 'true'
+        run: bash kernel/tools/fetch_android_kernel_clang.sh /tmp/google-clang
+      - uses: actions/cache/save@v4
+        if: steps.clang-cache.outputs.cache-hit != 'true'
+        with:
+          path: /tmp/google-clang
+          key: mondrian-a17-clang-r614150-c9ed23e2ba198658b630d4b10e09fa980cd43119
+      - name: Reproduce exact mondrian OEM GKI configuration
+        run: |
+          set -euo pipefail
+          export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
+          export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+          test "$(git -C /tmp/google-clang rev-parse HEAD)" = c9ed23e2ba198658b630d4b10e09fa980cd43119
+          mkdir -p "$RUNNER_TEMP/mondrian-out"
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" gki_defconfig
+          bash kernel/scripts/kconfig/merge_config.sh -m -r \
+            -O "$RUNNER_TEMP/mondrian-out" \
+            "$RUNNER_TEMP/mondrian-out/.config" \
+            kernel/arch/arm64/configs/vendor/mondrian_GKI.config
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" olddefconfig
+          grep -Fx 'CONFIG_ARCH_CAPE=y' "$RUNNER_TEMP/mondrian-out/.config"
+          grep -Fx 'CONFIG_ARCH_WAIPIO=y' "$RUNNER_TEMP/mondrian-out/.config"
+          python3 kernel/tools/verify_mondrian_oem_eroFS.py \
+            --generated-config "$RUNNER_TEMP/mondrian-out/.config"
+      - name: Compile real OEM vmlinux, Image and Module.symvers
+        run: |
+          set -euo pipefail
+          export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
+          export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" -j3 vmlinux Image modules
+          test -s "$RUNNER_TEMP/mondrian-out/vmlinux"
+          test -s "$RUNNER_TEMP/mondrian-out/Module.symvers"
+      - name: Build Qualcomm MMRM against same OEM kernel symbols
+        run: |
+          set -euo pipefail
+          export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
+          export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+          mmrm="$GITHUB_WORKSPACE/upstream/qualcomm/mmrm"
+          test -f "$mmrm/config/waipiommrmconf.h"
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" -j3 \
+            M="$mmrm/driver" MMRM_ROOT="$mmrm" CONFIG_MSM_MMRM=y \
+            KCFLAGS="-include $mmrm/config/waipiommrmconf.h" modules
+          test -s "$mmrm/driver/msm-mmrm.ko"
+          test -s "$mmrm/driver/Module.symvers"
+          python3 tools/verify_external_module_abi.py \
+            --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
+            --module "$mmrm/driver/msm-mmrm.ko" \
+            --expected-kernel-commit 478fac56b3cdfc3164ed4dca3389346d800e7593 \
+            --out camera-mmrm-abi-evidence.json
+      - name: Test OEM-only Clang23 correction without editing Xiaomi upstream
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_xiaomi_camera_clang23_fix.py' -v
+          python3 tools/apply_xiaomi_camera_clang23_fix.py --source xiaomi-camera-source
+      - name: Apply four byte-exact Xiaomi Camera no-argument prototypes for LLVM23
+        run: |
+          set -euo pipefail
+          python3 tools/apply_xiaomi_camera_clang23_fix.py \
+            --source xiaomi-camera-source --apply \
+            --evidence camera-clang23-fix-evidence.json
+          git -C xiaomi-camera-source diff --check
+          git -C xiaomi-camera-source diff -- drivers/cam_utils/cam_debug_util.c
+          git -C xiaomi-camera-source diff -- drivers/cam_sensor_module/cam_flash/cam_flash_dev.c
+          grep -Fq 'const struct camera_debug_settings *cam_debug_get_settings(void)' \
+            xiaomi-camera-source/drivers/cam_utils/cam_debug_util.c
+          grep -Fq 'static int cam_flash_i2c_driver_powerup(void)' \
+            xiaomi-camera-source/drivers/cam_sensor_module/cam_flash/cam_flash_dev.c
+          grep -Fq 'static int cam_flash_i2c_driver_powerdown(void)' \
+            xiaomi-camera-source/drivers/cam_sensor_module/cam_flash/cam_flash_dev.c
+          grep -Fq 'static void cam_flash_i2c_driver_deinit_kobject(void)' \
+            xiaomi-camera-source/drivers/cam_sensor_module/cam_flash/cam_flash_dev.c
+          grep -Fq '#define I2C_FLASH_GPIO_EN 356' \
+            xiaomi-camera-source/drivers/cam_sensor_module/cam_flash/cam_flash_dev.c
+      - name: Enforce mondrian Qualcomm PM8350C and reject yudi GPIO356
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_mondrian_pmic_flash.py' -v
+          python3 tools/select_mondrian_pmic_flash.py \
+            --source xiaomi-camera-source \
+            --device-tree device-tree \
+            --manifest mondrian-camera-flash-policy.json \
+            --apply --evidence camera-mondrian-pmic-selection.json
+          git -C xiaomi-camera-source diff --check
+          if grep -Fq '#define CONFIG_CAMERA_I2CFLASH 1' \
+            xiaomi-camera-source/drivers/cam_sensor_module/cam_flash/cam_flash_dev.h; then
+            echo "[FAIL] unqualified yudi I2C flash forced in source" >&2
+            exit 1
+          fi
+          if grep -Eq '^CONFIG_CAMERA_I2CFLASH=y$' \
+            "$RUNNER_TEMP/mondrian-out/.config"; then
+            echo "[FAIL] unqualified I2C GPIO branch in kernel config" >&2
+            exit 1
+          fi
+          echo "[PASS] OEM PMIC selected; original GPIO356 sysfs branch gated" >> "$GITHUB_STEP_SUMMARY"
+      - name: Apply mondrian CSI PHY, shared GPIO and WL2866D support
+        run: |
+          set -euo pipefail
+          test "$(git -C xiaomi-camera-source hash-object drivers/cam_sensor_module/cam_csiphy/cam_csiphy_soc.c)" = 5bfa19646ef62079a312db8eb2ecddd3ca9b701b
+          git -C xiaomi-camera-source apply --check "$GITHUB_WORKSPACE/patches/mondrian-m11a-csiphy.patch"
+          git -C xiaomi-camera-source apply "$GITHUB_WORKSPACE/patches/mondrian-m11a-csiphy.patch"
+          git -C xiaomi-camera-source apply "$GITHUB_WORKSPACE/patches/mondrian-wl2866d-power-rollback.patch"
+          git -C xiaomi-camera-source apply "$GITHUB_WORKSPACE/patches/mondrian-camera-shared-pinctrl-gpios.patch"
+          grep -Fq '"qcom,csiphy-v2.1.3-xiaomi-m11a"' xiaomi-camera-source/drivers/cam_sensor_module/cam_csiphy/cam_csiphy_soc.c
+          git -C xiaomi-camera-source diff --check
+      - name: Compile Xiaomi camera.ko and cameralog.ko with OEM PMIC backend
+        run: |
+          set -euo pipefail
+          export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
+          export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+          cam="$GITHUB_WORKSPACE/xiaomi-camera-source"
+          mmrm_syms="$GITHUB_WORKSPACE/upstream/qualcomm/mmrm/driver/Module.symvers"
+          test -s "$mmrm_syms"
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" -j3 \
+            M="$cam" CAMERA_KERNEL_ROOT="$cam" KERNEL_ROOT="$GITHUB_WORKSPACE/kernel" \
+            KBUILD_EXTRA_SYMBOLS="$mmrm_syms" modules \
+            2>&1 | tee camera-compile-diagnostic.log
+          test -s "$cam/camera.ko"
+          test -s "$cam/cameralog.ko"
+          strings "$cam/camera.ko" | grep -Fx 'qcom,csiphy-v2.1.3-xiaomi-m11a'
+          strings "$cam/camera.ko" | grep -Fx 'qcom,shared-pinctrl-gpios'
+      - name: Verify exact Qualcomm PMIC and generic I2C ELF symbols (no yudi GPIO356)
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_mondrian_camera_elf.py' -v
+          python3 tools/verify_mondrian_camera_elf.py \
+            --module xiaomi-camera-source/camera.ko \
+            --kernel kernel \
+            --kernel-out "$RUNNER_TEMP/mondrian-out" \
+            --expected-kernel-commit 478fac56b3cdfc3164ed4dca3389346d800e7593 \
+            --out camera-mondrian-elf-evidence.json
+          echo "[PASS] OEM PMIC parser/apply/flush, generic I2C and no donor sysfs GPIO356" >> "$GITHUB_STEP_SUMMARY"
+          echo "[PENDING] Sensor power and PM8350C flash operation on physical mondrian" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify both Xiaomi modules against the exact compiled OEM ABI
+        run: |
+          set -euo pipefail
+          for module in camera cameralog; do
+            modinfo -F name "xiaomi-camera-source/$module.ko"
+            modinfo -F depends "xiaomi-camera-source/$module.ko"
+            python3 tools/verify_external_module_abi.py \
+              --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
+              --module "xiaomi-camera-source/$module.ko" \
+              --expected-kernel-commit 478fac56b3cdfc3164ed4dca3389346d800e7593 \
+              --out "camera-$module-abi-evidence.json"
+          done
+          echo "[PASS] Xiaomi Camera modules compile and pass static OEM ABI checks" >> "$GITHUB_STEP_SUMMARY"
+          echo "[PENDING] Sensor identification, firmware and camera HAL on physical mondrian" >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve compiler errors and ABI evidence, even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mondrian-camera-oem-abi-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            camera-compile-diagnostic.log
+            camera-clang23-fix-evidence.json
+            camera-mondrian-pmic-selection.json
+            camera-mondrian-elf-evidence.json
+            mondrian-camera-flash-policy.json
+            camera-*-abi-evidence.json
+            xiaomi-camera-source/*.ko
+            xiaomi-camera-source/*.mod

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "project": "PixelExperience-Reborn",
+  "android_base": "AOSP 17",
+  "device": "mondrian",
+  "soc": "SM8475",
+  "kernel": {
+    "repository": "PixelExperience-Reborn/android_kernel_xiaomi_sm8450",
+    "commit": "478fac56b3cdfc3164ed4dca3389346d800e7593",
+    "version": "5.10.81"
+  },
+  "manufacturer_candidate": {
+    "repository": "MiCode/vendor_qcom_opensource_camera-kernel",
+    "branch": "yudi-t-oss",
+    "reference_device": "yudi",
+    "reference_soc": "SM8475",
+    "commit": "9ed4ce96d49c0759c6365627113c5f59c2407942",
+    "tree_sha": "e8fadfd2127cb9e12696273e1661ead9f9a70c89",
+    "file_blob_sha1": {
+      "Kbuild": "e8c67007eb4f1430adedbc6e7a8cd4629391247a",
+      "Makefile": "3964a33c99889783260ca606c0ebae175ace6271",
+      "config/cape.mk": "84c346c350638445b0b2930e4341ec6a050e89d6",
+      "config/waipio.mk": "61a5a023bc34908dc7f3285b66b0c3b1d23b205b",
+      "Android.mk": "b9897d7d73a62fee521cd988792f2a0a61ce1b38",
+      "board.mk": "925fc4866b6c89fd8ae9f4f0165155620a70541d"
+    },
+    "original_targets": [
+      "camera.ko",
+      "cameralog.ko"
+    ]
+  },
+  "qualification": {
+    "source_audit_passed": false,
+    "camera_compiled": false,
+    "cameralog_compiled": false,
+    "abi_verified": false,
+    "mmrm_abi_verified": false,
+    "sensor_firmware_verified": false,
+    "production_integration_approved": false,
+    "hardware_boot_verified": false
+  },
+  "policy": {
+    "xiaomi_source_only": true,
+    "lineage_code_imported": false,
+    "fm_radio_selected": false
+  },
+  "status": "SOURCE_ONLY_CANDIDATE_NOT_BUILT"
+}

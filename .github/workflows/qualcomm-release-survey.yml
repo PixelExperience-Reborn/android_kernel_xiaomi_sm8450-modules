@@ -1,0 +1,25 @@
+name: Discover exact Qualcomm Waipio source candidates
+
+on:
+  push:
+    branches: [bringup/a17-mondrian-oem-bsp-20261111]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Resolve upstream Qualcomm CodeLinaro tag SHA values
+        run: python3 tools/qualcomm_release_survey.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qualcomm-candidate-tag-sha
+          path: qualcomm-release-survey.json
+          retention-days: 7

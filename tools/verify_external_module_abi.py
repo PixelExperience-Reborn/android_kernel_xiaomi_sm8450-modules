@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""Strict evidence gate for Xiaomi external module built against the selected OEM kernel."""
+import argparse
+import hashlib
+import json
+import re
+from pathlib import Path
+import subprocess
+
+DEFAULT_KERNEL_COMMIT = "2466406b9beac724960b0c88e6e794421d0466e7"
+
+
+def command(args):
+    return subprocess.check_output(args, text=True).strip()
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--kernel", type=Path, required=True)
+    p.add_argument("--kernel-out", type=Path, required=True)
+    p.add_argument("--module", type=Path, required=True)
+    p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--expected-kernel-commit", default=DEFAULT_KERNEL_COMMIT,
+                   help="Explicit 40-hex SHA of the checked-out kernel; defaults to the qualified OEM-only source")
+    args = p.parse_args()
+    kernel = args.kernel.resolve()
+    output = args.kernel_out.resolve()
+    module = args.module.resolve()
+    expected = args.expected_kernel_commit
+    if re.fullmatch(r"[0-9a-f]{40}", expected) is None:
+        p.error("expected kernel commit must be an exact lowercase 40-hex SHA")
+    kernel_commit = command(["git", "-C", str(kernel), "rev-parse", "HEAD"])
+    if kernel_commit != expected:
+        p.error(f"kernel commit drift: expected {expected}, got {kernel_commit}")
+    for file in (output / "vmlinux", output / "Module.symvers",
+                 output / ".config", module):
+        if not file.is_file() or file.stat().st_size == 0:
+            p.error(f"missing required compiled file: {file}")
+    version = command(["make", "-s", "-C", str(kernel), f"O={output}", "kernelrelease"])
+    vermagic = command(["modinfo", "-F", "vermagic", str(module)])
+    if not vermagic.startswith(version + " "):
+        p.error(f"external module vermagic mismatch: {vermagic} versus {version}")
+    machine = command(["readelf", "-h", str(module)])
+    if "Machine:" not in machine or "AArch64" not in machine:
+        p.error("external module module is not AArch64 ELF")
+    if command(["modinfo", "-F", "license", str(module)]) == "":
+        p.error("external module module lacks license metadata")
+    deps = command(["modinfo", "-F", "depends", str(module)])
+    # Symbol errors are rejected by kbuild/modpost; capture the exact symvers
+    # and source hashes, not a false claim of real Wi-Fi firmware readiness.
+    def sha(path):
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    evidence = {
+        "device": "mondrian",
+        "kernel_commit": kernel_commit,
+        "kernelrelease": version,
+        "module": module.name,
+        "vermagic": vermagic,
+        "depends": deps.split(",") if deps else [],
+        "kernel_config_sha256": sha(output / ".config"),
+        "module_symvers_sha256": sha(output / "Module.symvers"),
+        "external_module_module_sha256": sha(module),
+        "module_compile": True,
+        "vendor_dlkm_packaging": False,
+        "firmware_validated": False,
+        "hardware_booted": False,
+    }
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(evidence, indent=2) + "\n")
+    print(f"[PASS] {module.name}: exact kernel SHA, AArch64 ELF, license and vermagic")
+    print("[PENDING] Firmware and device integration")
+
+if __name__ == "__main__":
+    main()
