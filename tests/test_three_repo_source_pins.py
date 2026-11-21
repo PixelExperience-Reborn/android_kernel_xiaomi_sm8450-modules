@@ -5,8 +5,8 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-KERNEL = "6b1293a9c03b2cf814878d6565ee17e33afe84f4"
-DEVICE_TREES = "29da25a009ddd5237d615059450fdae64a4ee49f"
+KERNEL = "478fac56b3cdfc3164ed4dca3389346d800e7593"
+DEVICE_TREES = "f761ca2286509217dbebd298fcfc8516f7d16043"
 
 
 class ThreeRepositorySourceGateTests(unittest.TestCase):

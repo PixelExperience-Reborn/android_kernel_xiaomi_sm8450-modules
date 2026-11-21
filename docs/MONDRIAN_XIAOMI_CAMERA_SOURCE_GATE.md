@@ -14,7 +14,7 @@ Qualcomm MMRM. Manufacturer Android.mk for taro requires mmrm-module-symvers.
 The new CI audits source commit/tree, original Git blobs and those contracts.
 
 Current selected target is Xiaomi OEM kernel Linux 5.10.81 at
-6b1293a9c03b2cf814878d6565ee17e33afe84f4, AOSP 17, mondrian only.
+478fac56b3cdfc3164ed4dca3389346d800e7593, AOSP 17, mondrian only.
 The older revisions and workflow runs below are retained as historical evidence.
 No LineageOS source is imported; only Xiaomi sources and verified official
 Qualcomm dependencies may form the target BSP. FM remains excluded.
