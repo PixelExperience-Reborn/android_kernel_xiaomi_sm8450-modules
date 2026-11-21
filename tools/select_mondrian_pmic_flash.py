@@ -12,7 +12,7 @@ from pathlib import Path
 import subprocess
 
 CAMERA_SHA = "9ed4ce96d49c0759c6365627113c5f59c2407942"
-DTS_SHA = "04416a756cb3839638584da575e460d4ee8657ae"
+DTS_SHA = "710fc738eca9e1b0d92f5a480ce5375aa1305e62"
 OEM_DTS_SHA = "34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c"
 OEM_COMMON_BLOB = "e4e321d4d54353f0243b0283647528180baa3137"
 HEADER = Path("drivers/cam_sensor_module/cam_flash/cam_flash_dev.h")
