@@ -67,13 +67,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450
-          ref: 478fac56b3cdfc3164ed4dca3389346d800e7593
+          ref: c67ed74ffe11bd2133b560078a20cf0c04e18d97
           path: kernel
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees
-          ref: f761ca2286509217dbebd298fcfc8516f7d16043
+          ref: a0db12120fc6c29cc5855d3e1699c9ef73594ee3
           path: device-tree
           submodules: recursive
           persist-credentials: false
@@ -100,7 +100,7 @@ jobs:
           export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
           export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
           test "$(git -C /tmp/google-clang rev-parse HEAD)" = c9ed23e2ba198658b630d4b10e09fa980cd43119
-          test "$(git -C kernel rev-parse HEAD)" = 478fac56b3cdfc3164ed4dca3389346d800e7593
+          test "$(git -C kernel rev-parse HEAD)" = c67ed74ffe11bd2133b560078a20cf0c04e18d97
           grep -Fx "SUBLEVEL = 81" kernel/Makefile
           (cd kernel && python3 tools/verify_mondrian_thermal.py)
           (cd kernel && python3 tools/verify_mondrian_goodix.py)
@@ -144,7 +144,7 @@ jobs:
           export ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-gnu-
           python3 tools/audit_mondrian_kernel_module_inventory.py \
             --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
-            --expected-kernel-commit 478fac56b3cdfc3164ed4dca3389346d800e7593 \
+            --expected-kernel-commit c67ed74ffe11bd2133b560078a20cf0c04e18d97 \
             --out "$RUNNER_TEMP/mondrian-inventory.json"
       - name: Apply reviewed Xiaomi WLAN header correction
         run: |
@@ -171,7 +171,7 @@ jobs:
           modinfo -F vermagic "$module"
           python3 tools/verify_external_module_abi.py \
             --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
-            --module "$module" --expected-kernel-commit 478fac56b3cdfc3164ed4dca3389346d800e7593 \
+            --module "$module" --expected-kernel-commit c67ed74ffe11bd2133b560078a20cf0c04e18d97 \
             --out "$RUNNER_TEMP/mmrm-abi-evidence.json"
           echo "[PASS] Qualcomm official MMRM compiled against OEM kernel symbols" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] Qualcomm display/camera/audio users and hardware validation" >> "$GITHUB_STEP_SUMMARY"
@@ -195,7 +195,7 @@ jobs:
           modinfo -F depends "$module"
           python3 tools/verify_external_module_abi.py \
             --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
-            --module "$module" --expected-kernel-commit 478fac56b3cdfc3164ed4dca3389346d800e7593 \
+            --module "$module" --expected-kernel-commit c67ed74ffe11bd2133b560078a20cf0c04e18d97 \
             --out "$RUNNER_TEMP/wlan-abi-evidence.json"
           echo "[PASS] Xiaomi QCACLD compiled against own kernel Module.symvers" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] WLAN firmware, vendor_dlkm integration, hardware boot" >> "$GITHUB_STEP_SUMMARY"
@@ -217,7 +217,7 @@ jobs:
           python3 tools/verify_external_module_abi.py \
             --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
             --module "$display/msm/msm_drm.ko" \
-            --expected-kernel-commit 478fac56b3cdfc3164ed4dca3389346d800e7593 \
+            --expected-kernel-commit c67ed74ffe11bd2133b560078a20cf0c04e18d97 \
             --out "$RUNNER_TEMP/display-abi-evidence.json"
           echo "[PASS] msm_drm.ko compiled with the same Module.symvers as WLAN/MMRM" >> "$GITHUB_STEP_SUMMARY"
       - name: Compile original Xiaomi camera/cameralog with PM8350C and SAME OEM MMRM symbols
@@ -259,7 +259,7 @@ jobs:
             python3 tools/verify_external_module_abi.py \
               --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
               --module "$cam/$item.ko" \
-              --expected-kernel-commit 478fac56b3cdfc3164ed4dca3389346d800e7593 \
+              --expected-kernel-commit c67ed74ffe11bd2133b560078a20cf0c04e18d97 \
               --out "$RUNNER_TEMP/$item-oem-abi-evidence.json"
           done
           python3 -m unittest discover -s tests -p 'test_mondrian_camera_elf.py' -v
@@ -267,7 +267,7 @@ jobs:
             --module "$cam/camera.ko" \
             --kernel kernel \
             --kernel-out "$RUNNER_TEMP/mondrian-out" \
-            --expected-kernel-commit 478fac56b3cdfc3164ed4dca3389346d800e7593 \
+            --expected-kernel-commit c67ed74ffe11bd2133b560078a20cf0c04e18d97 \
             --out "$RUNNER_TEMP/camera-pmic-elf-evidence.json"
           echo "[PASS] Xiaomi Camera modules compiled with OEM Image, MMRM and Qualcomm PMIC" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] mondrian hardware sensors/LED channel/Android Camera HAL" >> "$GITHUB_STEP_SUMMARY"
@@ -291,7 +291,7 @@ jobs:
           done
           python3 tools/stage_mondrian_wlan_kmi.py \
             --kernel kernel \
-            --expected-kernel-commit 478fac56b3cdfc3164ed4dca3389346d800e7593 \
+            --expected-kernel-commit c67ed74ffe11bd2133b560078a20cf0c04e18d97 \
             --kernel-out "$RUNNER_TEMP/mondrian-out" \
             --wlan "$GITHUB_WORKSPACE/upstream/xiaomi-wlan/qcacld-3.0/qca_cld3_qca6490.ko" \
             --mmrm "$GITHUB_WORKSPACE/upstream/qualcomm/mmrm/driver/msm-mmrm.ko" \
@@ -333,8 +333,8 @@ jobs:
       - name: Integrate exact OEM Kernel, Camera, Audio and native mondrian Devicetrees
         run: |
           set -euo pipefail
-          test "$(git -C kernel rev-parse HEAD)" = 478fac56b3cdfc3164ed4dca3389346d800e7593
-          test "$(git -C device-tree rev-parse HEAD)" = f761ca2286509217dbebd298fcfc8516f7d16043
+          test "$(git -C kernel rev-parse HEAD)" = c67ed74ffe11bd2133b560078a20cf0c04e18d97
+          test "$(git -C device-tree rev-parse HEAD)" = a0db12120fc6c29cc5855d3e1699c9ef73594ee3
           test "$(git -C device-tree/upstream/xiaomi-dts rev-parse HEAD)" = 34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c
           test "$(git -C device-tree/upstream/xiaomi-camera-platform rev-parse HEAD)" = a59a63bd498b94074c41357a466874b99aec62a8
           python3 -m venv "$RUNNER_TEMP/pe-bsp-dt-venv"
@@ -342,7 +342,7 @@ jobs:
           "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" -m unittest discover -s device-tree/tests -p 'test_mondrian_audio_fdt.py' -v
           "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" device-tree/tools/build_oem_dtbo.py \
             --kernel kernel \
-            --expected-kernel-commit 478fac56b3cdfc3164ed4dca3389346d800e7593 \
+            --expected-kernel-commit c67ed74ffe11bd2133b560078a20cf0c04e18d97 \
             --out "$RUNNER_TEMP/mondrian-coherent-board"
           "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" device-tree/tools/build_mondrian_camera_platform.py \
             --kernel kernel \
@@ -364,7 +364,7 @@ jobs:
           board_path, camera_path, modules_path, display_path, output_path = map(pathlib.Path, sys.argv[1:])
           board, camera, modules = [json.loads(p.read_text()) for p in (board_path, camera_path, modules_path)]
           display = json.loads(display_path.read_text())
-          kernel_sha = "478fac56b3cdfc3164ed4dca3389346d800e7593"
+          kernel_sha = "c67ed74ffe11bd2133b560078a20cf0c04e18d97"
           bases = {"cape", "cape-v2", "capep"}
           assert board["kernel"] == kernel_sha and camera["kernel_commit"] == kernel_sha
           assert display["kernel_commit"] == kernel_sha and set(display["boards"]) == bases
@@ -396,7 +396,7 @@ jobs:
               "device": "mondrian", "android_base": "AOSP 17",
               "kernel_commit": kernel_sha,
               "modules_commit": "${{ github.sha }}",
-              "devicetrees_commit": "f761ca2286509217dbebd298fcfc8516f7d16043",
+              "devicetrees_commit": "a0db12120fc6c29cc5855d3e1699c9ef73594ee3",
               "coherent_kernel_modules_and_device_trees_compiled": True,
               "source_only_audio_speaker_and_mi2s_verified": True,
               "camera_cci_csiphy_controller_overlay_compiled": True,
@@ -439,13 +439,13 @@ jobs:
           for file in "$image" "$symvers" "$config" "$display" "$wlan" "$mmrm" "$camera" "$cameralog" "$manifest" "$inventory"; do
             test -s "$file" || { echo "::error::missing diagnostic artifact: $file"; exit 1; }
           done
-          test "$(git -C kernel rev-parse HEAD)" = 478fac56b3cdfc3164ed4dca3389346d800e7593
+          test "$(git -C kernel rev-parse HEAD)" = c67ed74ffe11bd2133b560078a20cf0c04e18d97
           python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["kernel_commit"]==sys.argv[2] and d["display_module_included"] and d["all_root_dry_run_union_matches_staged_closure"] and d["camera_modules_included"] and d["camera_modules_are_diagnostic_only"] and len(d["checked_module_roots"])==20 and len(d["audited_oem_roots"])==15 and not d["production_boot_load_order_qualified"]' \
-            "$manifest" 478fac56b3cdfc3164ed4dca3389346d800e7593
+            "$manifest" c67ed74ffe11bd2133b560078a20cf0c04e18d97
           sha256sum "$image" "$symvers" "$config" "$display" "$wlan" "$mmrm" "$camera" "$cameralog" "$manifest" "$inventory" \
             > "$RUNNER_TEMP/mondrian-stage/diagnostic-sha256.txt"
           echo "[PASS] Pinned-source Image/Display/WLAN/MMRM/Camera/cameralog and exact dependency closure staged" >> "$GITHUB_STEP_SUMMARY"
-          echo "[BLOCKED] No factory M11A panel, production boot.img/dtbo.img or device test" >> "$GITHUB_STEP_SUMMARY"
+          echo "[PENDING] M11A panel revision on hardware, production boot.img/dtbo.img and device boot" >> "$GITHUB_STEP_SUMMARY"
       - name: Save diagnostic ABI evidence
         if: always()
         uses: actions/upload-artifact@v4

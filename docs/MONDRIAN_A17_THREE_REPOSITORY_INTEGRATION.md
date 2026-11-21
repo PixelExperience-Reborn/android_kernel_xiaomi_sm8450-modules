@@ -9,9 +9,9 @@ reference **only**; no Lineage driver, DTS or ROM base is selected.
 
 | Source | Pinned revision |
 | --- | --- |
-| Kernel: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450` | `478fac56b3cdfc3164ed4dca3389346d800e7593` |
+| Kernel: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450` | `c67ed74ffe11bd2133b560078a20cf0c04e18d97` |
 | Modules: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules` | current active bringup PR head, recorded by the CI run |
-| Devicetrees: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees` | `f761ca2286509217dbebd298fcfc8516f7d16043` |
+| Devicetrees: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees` | `a0db12120fc6c29cc5855d3e1699c9ef73594ee3` |
 | Xiaomi original kernel DT: `MiCode/kernel_devicetree` | `34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c` |
 | Xiaomi original Camera Kernel | `9ed4ce96d49c0759c6365627113c5f59c2407942` |
 | Xiaomi original Cape Camera platform | `a59a63bd498b94074c41357a466874b99aec62a8` |
@@ -35,8 +35,8 @@ report explicitly keeps production `modules.load`, `boot.img`,
 | --- | --- | --- |
 | Camera | Seven factory CamX profiles map to four slots. The ultrawide P24C64F uses WL2866D AVDD1 for power. Its DT node no longer aliases MCLK1 as EEPROM reset. The wide actuator and three rear flash consumers are linked. | Wide AK7323 OIS hookup, sensor ID and EEPROM reads, autofocus, power transitions and flash on physical mondrian |
 | Audio | Original mondrian I2C15 AW882xx pair (0x34/0x35), MI2S2 pins and TLMM mapping verified in **all three compiled OEM Cape DTBs** | Compatible source-based Audio kernel/codec driver, DSP/ALSA calibration, HAL and real speaker/mic/receiver/call tests |
-| Display M11A | Published Xiaomi mondrian panel and Cape display controllers build on all three camera-integrated boards with the M11A primary fallback. The panel ID, DSC geometry and 60/90/120 Hz modes match the global stock DT. | The 90 Hz ON packet is corrected. Normal white/green LHBM and both active-mode exit payloads match both global factory entries. Remaining work includes low-power sequences, the FOD-ready runtime path and physical qualification. |
-| UDFPS/Goodix | OEM Goodix SPI and FOD kernel modules, verified original DTS binding/firmware names | LHBM coordination, panel notifier and Goodix runtime tests, AOSP17 fingerprint HAL |
+| Display M11A | The corrected 90 Hz ON table and the M11A primary panel build on all three boards. At 60/90/120 Hz the normal FOD and seven low-power command streams match both reviewed global firmware entries. The paired driver restores normal brightness on doze exit. | Confirm the installed panel revision, screen initialization and suspend/resume on mondrian. |
+| UDFPS/Goodix | OEM Goodix G3S SPI driver and DT binding. The native M11A driver handles the Xiaomi display request and event ABI, per-unit white calibration and the four-frame readiness delay. | Confirm the Android 17 fingerprint service can open the node, then enroll and unlock on the phone with the display on and in doze. |
 | WLAN/thermal/boot | Selected OEM critical drivers compiled; Xiaomi QCACLD and Qualcomm MMRM/Display module diagnostic closure | Real RF/thermal transitions; firmware, vendor_boot, vendor_dlkm staging, SELinux and partition/bootloader-aware image creation |
 
 ## Implementation rules
