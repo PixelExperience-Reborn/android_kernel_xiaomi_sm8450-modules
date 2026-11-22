@@ -63,10 +63,18 @@ class KernelHardeningTests(unittest.TestCase):
                 text = (ROOT / path).read_text()
                 self.assertIn("tools/config/mondrian_gki_hardening.config", text)
                 self.assertIn("python3 tools/verify_mondrian_kernel_hardening.py", text)
-                self.assertLess(text.index("gki_defconfig"),
-                                text.index("tools/config/mondrian_gki_hardening.config"))
-                self.assertLess(text.index("olddefconfig"),
-                                text.index("python3 tools/verify_mondrian_kernel_hardening.py"))
+                # Do not match the workflow 'paths:' trigger list, which
+                # precedes jobs and legitimately mentions the same source.
+                command = 'make -C kernel O="$RUNNER_TEMP/mondrian-out" gki_defconfig'
+                position = text.index(command)
+                fragment = text.index(
+                    "tools/config/mondrian_gki_hardening.config", position)
+                olddef = text.index("olddefconfig", fragment)
+                verifier = text.index(
+                    "python3 tools/verify_mondrian_kernel_hardening.py", olddef)
+                self.assertLess(position, fragment)
+                self.assertLess(fragment, olddef)
+                self.assertLess(olddef, verifier)
 
 
 if __name__ == "__main__":
