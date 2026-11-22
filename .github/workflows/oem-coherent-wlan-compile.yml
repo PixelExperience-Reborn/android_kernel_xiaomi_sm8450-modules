@@ -58,6 +58,8 @@ jobs:
           python3 tools/verify_xiaomi_camera_submodule.py
           python3 tools/verify_mondrian_audio_video_sources.py
           bash -n tools/build_mondrian_audio_video.sh
+          sh -n tools/collect_mondrian_camera_runtime.sh
+          python3 -m py_compile tools/check_mondrian_camera_runtime.py
           python3 tools/verify_oem_wlan.py
           python3 tools/apply_oem_wlan_fix.py
           python3 tools/verify_qcom_mmrm.py
