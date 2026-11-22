@@ -3,6 +3,7 @@ import pathlib
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+KERNEL_SHA = "c67ed74ffe11bd2133b560078a20cf0c04e18d97"
 MAKE_ARGS = (
     "CONFIG_CNSS_QCA6490=y", "CONFIG_ROME_IF=pci",
     "WLAN_CTRL_NAME=wlan", "TARGET_BUILD_VARIANT=user",
@@ -38,6 +39,20 @@ class Qca6490PcieProfileTests(unittest.TestCase):
             self.assertNotIn("CONFIG_ROME_IF=snoc", txt)
             self.assertNotIn("CONFIG_CNSS_QCA6390=y", txt)
             self.assertNotIn("CONFIG_CNSS_QCA6750=y", txt)
+
+    def test_standalone_and_coherent_jobs_use_exactly_the_same_kernel(self):
+        standalone = (ROOT / ".github/workflows/oem-wlan-compile.yml").read_text()
+        coherent = (ROOT / ".github/workflows/oem-coherent-wlan-compile.yml").read_text()
+        stage = (ROOT / "tools/stage_mondrian_wlan_kmi.py").read_text()
+        specialized = (ROOT / "tools/verify_external_wlan_abi.py").read_text()
+        for workflow in (standalone, coherent):
+            self.assertIn("ref: " + KERNEL_SHA, workflow)
+            self.assertNotIn("ref: 2466406b9beac724960b0c88e6e794421d0466e7", workflow)
+        self.assertIn('test "$(git -C kernel rev-parse HEAD)" = ' + KERNEL_SHA, standalone)
+        # OEM MMRM, WLAN and depmod staging must fail on a different kernel.
+        self.assertEqual(standalone.count("--expected-kernel-commit " + KERNEL_SHA), 3)
+        self.assertIn('KERNEL_SHA = "' + KERNEL_SHA + '"', stage)
+        self.assertEqual(specialized.count('"' + KERNEL_SHA + '"'), 2)
 
 if __name__ == "__main__":
     unittest.main()

@@ -30,3 +30,13 @@ and Qualcomm dependency ABI. No Lineage driver or new firmware added.
 
 This is still *compile-only* validation: firmware naming/availability,
 CNSS2 probing and AOSP17 vendor integration remain to be verified.
+
+## Consistency gate before first ROM build
+
+The standalone WLAN ABI workflow must use the same immutable OEM
+Kernel SHA `c67ed74ffe11bd2133b560078a20cf0c04e18d97` as the combined three-repository
+qualification; this includes its checked-out source, MMRM/WLAN ABI
+checks and depmod staging. A different successfully linked OEM kernel
+cannot substitute for this qualification. Full PCIe and hardening
+compilation still requires a completed CI run; a source-only PASS
+or a shutdown during the Full LTO link is not sufficient.

@@ -33,3 +33,16 @@ This is a **diagnostic** change until LLVM23 kernel + external module
 compile succeeds with the resulting GKI hardening. A successful
 compiler run alone cannot prove hardware support, runtime security,
 device boot, or product OTA readiness.
+
+## Follow-up CI evidence: 22 November 2026
+
+The strengthened configuration **did** pass in GitHub Actions run
+`#45077075060`: the evaluated `.config` retained HW-tag KASAN,
+Full LTO, CFI and SCS; the build log compiled `mm/kasan/hw_tags.o`,
+`kernel/cfi.o` and `kernel/scs.o`, not the old generic KASAN object.
+The runner then received a shutdown signal at `LTO vmlinux.o`
+(exit 143). This does not establish an LLVM compiler defect, OOM,
+or a successful `vmlinux` link. Preserve all security settings and
+require a completed kernel + external modules build before qualification.
+Both full CI paths now record memory, disk and swap information before
+starting the LTO link to help diagnose future environmental failures.

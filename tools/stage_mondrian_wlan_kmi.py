@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import sys
 
-KERNEL_SHA = "2466406b9beac724960b0c88e6e794421d0466e7"
+KERNEL_SHA = "c67ed74ffe11bd2133b560078a20cf0c04e18d97"
 ROOT_WLAN_DEPS = frozenset(
     ("icnss2", "mi_cnss_statistic", "cfg80211",
      "cnss_prealloc", "cnss_nl", "cnss_utils")
@@ -146,7 +146,7 @@ def main():
                    help="Additional compiled external diagnostic root (repeatable)")
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--expected-kernel-commit", default=KERNEL_SHA,
-                   help="Exact checked-out kernel SHA (defaults to reviewed OEM-only commit)")
+                   help="Exact checked-out kernel SHA (defaults to reviewed coherent mondrian kernel commit)")
     args = p.parse_args()
     kernel, kout = args.kernel.resolve(), args.kernel_out.resolve()
     try:
