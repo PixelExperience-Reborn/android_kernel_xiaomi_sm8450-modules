@@ -36,3 +36,18 @@ The build now uses make -k and captures both Audio and VIDC compiler results,
 so a failure in one driver does not prevent diagnostics in the other. Either
 nonzero status stops the job before staging and any successful qualification.
 No compiler warning is suppressed. Compilation and hardware remain pending.
+
+## Qualcomm VIDC LLVM23 declaration correction
+
+Both CI runs #44975428940 and #44975433568 passed Audio compilation (34
+modules including AW882xx and machine_dlkm). VIDC alone returned 2.
+The complete diagnostic logs contain 17 distinct declaration failures:
+14 implicit-int predicates in msm_vidc_driver.h, two implicit-int static
+functions (DPB allocation and CSC coefficients), and one empty-parameter
+DebugFS definition whose existing header already declares (void).
+Use explicit int to preserve the original implicit return type and error
+codes, and (void) for DebugFS. Verify the exact original Git blobs of all
+four edited files and the unchanged debug header; require precisely 17
+changed lines. No changes to function bodies, firmware, device tree,
+compiler warning gates, kernel configuration or Audio code. Integrated
+module staging and physical hardware remain unqualified until verified.

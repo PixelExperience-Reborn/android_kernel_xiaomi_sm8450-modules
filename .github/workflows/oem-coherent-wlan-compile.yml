@@ -13,6 +13,8 @@ on:
       - upstream/qualcomm/video
       - tools/build_mondrian_audio_video.sh
       - tools/apply_xiaomi_audio_clang23_fix.py
+      - tools/apply_qualcomm_vidc_clang23_fix.py
+      - tests/test_qualcomm_vidc_clang23_fix.py
       - tests/test_xiaomi_audio_clang23_fix.py
       - tools/verify_mondrian_audio_video_sources.py
       - tests/test_mondrian_audio_video_sources.py
