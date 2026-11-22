@@ -51,3 +51,9 @@ four edited files and the unchanged debug header; require precisely 17
 changed lines. No changes to function bodies, firmware, device tree,
 compiler warning gates, kernel configuration or Audio code. Integrated
 module staging and physical hardware remain unqualified until verified.
+
+## VIDC MMRM const-field initialization (22 November 2026)
+
+Both full coherent runs [#44977003402](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/44977003402) and [#44977007875](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/44977007875) compiled the original 34 audio modules and all VIDC translation units except `venus_hfi.c`. Clang 23's warning gate reports `-Wdefault-const-init-field-unsafe` at line 1509 because Qualcomm's MMRM descriptor has a `const char name[]` field and was declared without an initializer.
+
+The existing exact-source adaptation now initializes the whole descriptor with `{ 0 }` before the original clock-domain/ID/name/clock/priority/notifier assignments and MMRM registration. No MMRM API, kernel header, function body, clock name, or compile warning is removed. Strict byte-exact source SHA verification now covers 18 changes in five VIDC source files, including the original Qualcomm `venus_hfi.c` blob. Hardware/production readiness remains unclaimed until full CI and device validation.

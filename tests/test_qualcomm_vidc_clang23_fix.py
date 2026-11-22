@@ -11,9 +11,9 @@ spec.loader.exec_module(fix)
 
 
 class VideoDeclarationTests(unittest.TestCase):
-    def test_all_17_declarations(self):
-        self.assertEqual(len(fix.PATCHES), 4)
-        self.assertEqual(sum(len(pairs) for _, pairs in fix.PATCHES.values()), 17)
+    def test_all_18_declarations(self):
+        self.assertEqual(len(fix.PATCHES), 5)
+        self.assertEqual(sum(len(pairs) for _, pairs in fix.PATCHES.values()), 18)
         for path, (blob, pairs) in fix.PATCHES.items():
             self.assertRegex(blob, "^[0-9a-f]{40}$")
             for old, new in pairs:
@@ -25,6 +25,29 @@ class VideoDeclarationTests(unittest.TestCase):
                     for invalid in (source + source, updated, b"/* unrelated */\n"):
                         with self.assertRaises(ValueError):
                             fix.corrected(invalid, ((old, new),))
+
+    def test_mmrm_descriptor_initialized_without_changing_registration(self):
+        path = "driver/vidc/src/venus_hfi.c"
+        blob, pairs = fix.PATCHES[path]
+        self.assertEqual(blob, "0b167473b05195e8e8a35b0bb5a0fd3dec84d331")
+        self.assertEqual(pairs, ((
+            b"\t\tstruct mmrm_client_desc desc;\n",
+            b"\t\tstruct mmrm_client_desc desc = { 0 };\n",
+        ),))
+        source = (
+            b"static int register_client(void)\n{\n"
+            b"\t\tstruct mmrm_client_desc desc;\n"
+            b"\t\tchar *name = (char *)desc.client_info.desc.name;\n"
+            b"\t\tdesc.client_type = MMRM_CLIENT_CLOCK;\n"
+            b"\t\tstrlcpy(name, cl->name, sizeof(desc.client_info.desc.name));\n"
+            b"\t\treturn mmrm_client_register(&desc) ? 0 : -EINVAL;\n}\n"
+        )
+        expected = source.replace(*pairs[0])
+        self.assertEqual(fix.corrected(source, pairs), expected)
+        self.assertIn(b"strlcpy(name, cl->name, sizeof(desc.client_info.desc.name));", expected)
+        self.assertIn(b"mmrm_client_register(&desc)", expected)
+        with self.assertRaises(ValueError):
+            fix.corrected(expected, pairs)
 
     def test_applied_after_pins_before_compilation(self):
         build = (ROOT / "tools/build_mondrian_audio_video.sh").read_text()

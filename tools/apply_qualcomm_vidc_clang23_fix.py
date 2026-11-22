@@ -54,6 +54,15 @@ PATCHES = {
             (b"struct dentry* msm_vidc_debugfs_init_drv()\n", b"struct dentry* msm_vidc_debugfs_init_drv(void)\n"),
         ),
     ),
+    # Clang 23 rejects uninitialized const name[] in the OEM MMRM desc.
+    # Zero initialization preserves every existing field assignment,
+    # name copy and MMRM registration, while initializing the whole struct.
+    "driver/vidc/src/venus_hfi.c": (
+        "0b167473b05195e8e8a35b0bb5a0fd3dec84d331",
+        (
+            (b"\t\tstruct mmrm_client_desc desc;\n", b"\t\tstruct mmrm_client_desc desc = { 0 };\n"),
+        ),
+    ),
 }
 
 
@@ -106,16 +115,16 @@ def main():
     expected = {f"{len(pairs)}\t{len(pairs)}\t{path}"
                 for path, (_, pairs) in PATCHES.items()}
     if set(git(root, "diff", "--numstat").splitlines()) != expected:
-        raise ValueError("VIDC patch must change exactly 17 declarations")
+        raise ValueError("VIDC patch must change exactly 18 declarations")
     if git(root, "diff", "--check"):
         raise ValueError("VIDC patch whitespace errors")
     args.evidence.parent.mkdir(parents=True, exist_ok=True)
     args.evidence.write_text(json.dumps({
         "source_commit": COMMIT, "files": evidence,
-        "total_declarations": 17, "warnings_suppressed": False,
+        "total_declarations": 18, "warnings_suppressed": False,
         "hardware_qualified": False,
     }, indent=2) + "\n")
-    print("[PASS] Exactly 17 Qualcomm VIDC declarations corrected; behavior unchanged")
+    print("[PASS] Exactly 18 Qualcomm VIDC declarations and initializers corrected; behavior unchanged")
 
 
 if __name__ == "__main__":
