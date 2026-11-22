@@ -18,6 +18,9 @@ on:
       - tests/test_xiaomi_audio_clang23_fix.py
       - tools/verify_mondrian_audio_video_sources.py
       - tests/test_mondrian_wlan_pcie_profile.py
+      - tools/config/mondrian_gki_hardening.config
+      - tools/verify_mondrian_kernel_hardening.py
+      - tests/test_mondrian_kernel_hardening.py
       - tests/test_mondrian_audio_video_sources.py
       - tools/audit_mondrian_kernel_module_inventory.py
       - tests/test_kernel_module_inventory.py
@@ -130,8 +133,12 @@ jobs:
           bash kernel/scripts/kconfig/merge_config.sh -m -r \
             -O "$RUNNER_TEMP/mondrian-out" \
             "$RUNNER_TEMP/mondrian-out/.config" \
-            kernel/arch/arm64/configs/vendor/mondrian_GKI.config
+            kernel/arch/arm64/configs/vendor/mondrian_GKI.config \
+            tools/config/mondrian_gki_hardening.config
           make -C kernel O="$RUNNER_TEMP/mondrian-out" olddefconfig
+          python3 tools/verify_mondrian_kernel_hardening.py \
+            --generated-config "$RUNNER_TEMP/mondrian-out/.config" \
+            --out "$RUNNER_TEMP/mondrian-gki-hardening-evidence.json"
           python3 kernel/tools/verify_mondrian_oem_eroFS.py \
             --generated-config "$RUNNER_TEMP/mondrian-out/.config"
       - name: Build full OEM vmlinux and in-tree modules first

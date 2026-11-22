@@ -98,8 +98,12 @@ jobs:
           bash kernel/scripts/kconfig/merge_config.sh -m -r \
             -O "$RUNNER_TEMP/mondrian-out" \
             "$RUNNER_TEMP/mondrian-out/.config" \
-            kernel/arch/arm64/configs/vendor/mondrian_GKI.config
+            kernel/arch/arm64/configs/vendor/mondrian_GKI.config \
+            tools/config/mondrian_gki_hardening.config
           make -C kernel O="$RUNNER_TEMP/mondrian-out" olddefconfig
+          python3 tools/verify_mondrian_kernel_hardening.py \
+            --generated-config "$RUNNER_TEMP/mondrian-out/.config" \
+            --out "$RUNNER_TEMP/mondrian-gki-hardening-evidence.json"
           grep -Fx 'CONFIG_ARCH_CAPE=y' "$RUNNER_TEMP/mondrian-out/.config"
           grep -Fx 'CONFIG_ARCH_WAIPIO=y' "$RUNNER_TEMP/mondrian-out/.config"
           python3 kernel/tools/verify_mondrian_oem_eroFS.py \
