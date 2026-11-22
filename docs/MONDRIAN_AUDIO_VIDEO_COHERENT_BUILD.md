@@ -20,3 +20,19 @@ and the same OEM configuration, vmlinux and Module.symvers.
   no donor speaker enabled and no FM support.
 - Status: first integrated CI required; fix actual compile or modpost errors
   before moving on to Camera/OIS.
+
+## LLVM23 compilation correction
+
+The push and PR builds #44962227027 / #44962231537 both reached the same
+manufacturer Audio failure after successfully compiling the existing kernel,
+WLAN, MMRM, Display and Camera. In asoc/msm_common.c:602 and :633,
+LLVM23 rejects two static QoS functions declared with empty parameter lists.
+Both have exactly one existing no-argument caller. The reviewed byte-exact
+adaptation changes only those two definitions to (void), with original Git
+blob verification, exact diff checks and regression tests. The function bodies,
+callers, power behavior and warning settings remain untouched.
+
+The build now uses make -k and captures both Audio and VIDC compiler results,
+so a failure in one driver does not prevent diagnostics in the other. Either
+nonzero status stops the job before staging and any successful qualification.
+No compiler warning is suppressed. Compilation and hardware remain pending.

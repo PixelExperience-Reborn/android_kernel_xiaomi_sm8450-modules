@@ -17,22 +17,32 @@ test -s "$mmrm_sym"
 grep -Fxq 'CONFIG_ARCH_WAIPIO=y' "$kout/.config"
 grep -Fxq 'CONFIG_ARCH_CAPE=y' "$kout/.config"
 python3 tools/verify_mondrian_audio_video_sources.py
+python3 tools/apply_xiaomi_audio_clang23_fix.py --source "$audio" \
+    --evidence "$RUNNER_TEMP/mondrian-media-audio-patch.json"
 # OEM Android.mk selects taro/WAIPIO. Full Kbuild visits all audio
 # subdirectories in one modpost, not split Android OUT paths.
-make -C kernel O="$kout" -j3 M="$audio" AUDIO_ROOT="$audio" \
+# Keep going through independent objects and try both drivers even if one
+# fails. With pipefail, either compiler/tee failure is a hard CI failure.
+audio_status=0
+video_status=0
+make -k -C kernel O="$kout" -j3 M="$audio" AUDIO_ROOT="$audio" \
     MODNAME=audio_dlkm BOARD_PLATFORM=taro TARGET_PRODUCT=mondrian \
     CONFIG_SND_SOC_WAIPIO=m KBUILD_EXTRA_SYMBOLS= modules \
-    2>&1 | tee "$RUNNER_TEMP/mondrian-media-audio.log"
+    2>&1 | tee "$RUNNER_TEMP/mondrian-media-audio.log" || audio_status=$?
+# Select WAIPIO/IRIS2 inside the external driver, keeping the kernel config.
+make -k -C kernel O="$kout" -j3 M="$video" VIDEO_ROOT="$video" \
+    MODNAME=msm_video BOARD_PLATFORM=taro CONFIG_MSM_VIDC_V4L2=m \
+    CONFIG_ARCH_DIWALI=n KBUILD_EXTRA_SYMBOLS="$mmrm_sym" modules \
+    2>&1 | tee "$RUNNER_TEMP/mondrian-media-video.log" || video_status=$?
+if (( audio_status != 0 || video_status != 0 )); then
+    echo "::error::Media compile failed: Audio=$audio_status VIDC=$video_status"
+    exit 1
+fi
 for name in machine_dlkm aw882xx_dlkm q6_dlkm gpr_dlkm adsp_loader_dlkm swr_dlkm spf_core_dlkm; do
     mapfile -t matches < <(find "$audio" -type f -name "$name.ko")
     test "${#matches[@]}" -eq 1
     test -s "${matches[0]}"
 done
-# Select WAIPIO/IRIS2 inside the external driver, keeping the kernel config.
-make -C kernel O="$kout" -j3 M="$video" VIDEO_ROOT="$video" \
-    MODNAME=msm_video BOARD_PLATFORM=taro CONFIG_MSM_VIDC_V4L2=m \
-    CONFIG_ARCH_DIWALI=n KBUILD_EXTRA_SYMBOLS="$mmrm_sym" modules \
-    2>&1 | tee "$RUNNER_TEMP/mondrian-media-video.log"
 test -s "$video/msm_video.ko"
 strings "$audio/asoc/codecs/aw882xx/aw882xx_dlkm.ko" | grep -Fx 'awinic,aw882xx_smartpa'
 strings "$audio/asoc/machine_dlkm.ko" | grep -Fx 'qcom,waipio-asoc-snd'
