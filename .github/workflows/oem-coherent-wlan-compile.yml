@@ -24,6 +24,7 @@ on:
       - tools/qualify_ziyi_audio_candidate.sh
       - tools/apply_ziyi_audio_clang23_fix.py
       - tests/test_ziyi_audio_candidate.py
+      - tests/test_ci_concurrency.py
       - tests/test_mondrian_audio_video_sources.py
       - tools/audit_mondrian_kernel_module_inventory.py
       - tests/test_kernel_module_inventory.py
@@ -46,7 +47,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: mondrian-coherent-external-wlan-build-${{ github.event_name }}
+  group: mondrian-coherent-external-wlan-build-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
