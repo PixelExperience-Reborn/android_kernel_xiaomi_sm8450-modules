@@ -5,10 +5,12 @@ Preserves the successful three-repository Display/Camera/WLAN/MMRM baseline.
 The existing bringup CI now attempts both real external drivers with LLVM 23
 and the same OEM configuration, vmlinux and Module.symvers.
 
-- Audio: Xiaomi MiCode/vendor_qcom_opensource_audio-kernel, marble-s-oss
-  `7d174adfe5304b74889e0cf0e16132a049707710`. Original WAIPIO/taro source, explicit mondrian machine
-  selection and AW882xx v1.11.0 including PID 2113; existing mondrian DTS
-  has matching devices at 0x34 and 0x35. No donor DT configuration is imported.
+- Audio: original Xiaomi `MiCode/vendor_qcom_opensource_audio-kernel`, **ziyi-s-oss**
+  `8b1c8d3486a7ac3349d1422201a4436ad852fcb1` is now the only audio gitlink in the
+  diagnostic BSP build. Xiaomi WAIPIO/taro ASoC with Awinic AW882xx is checked against
+  mondrian I2C 0x34/0x35 and MI2S2 factory pinout. The original Xiaomi Kbuild and
+  7 source blobs are pinned, with only 2 reviewed LLVM23 QoS prototype fixes.
+  No unrelated donor DTS, FM route, FM HAL or ROM source is introduced.
 - Video: official Qualcomm CodeLinaro video-driver, VIDEO.LA.2.0.r1-10200-WAIPIO.0,
   `707fcdb08626667663d13cfceeb2d9dfe92893e3`, same release as the present MMRM driver.
   WAIPIO/IRIS2 is selected for this external build; kernel config unchanged.
@@ -23,7 +25,7 @@ and the same OEM configuration, vmlinux and Module.symvers.
 
 ## LLVM23 compilation correction
 
-The push and PR builds #44962227027 / #44962231537 both reached the same
+Historical builds with the previous comparison-only Audio revision, #44962227027 / #44962231537, both reached the same
 manufacturer Audio failure after successfully compiling the existing kernel,
 WLAN, MMRM, Display and Camera. In asoc/msm_common.c:602 and :633,
 LLVM23 rejects two static QoS functions declared with empty parameter lists.
@@ -57,3 +59,15 @@ module staging and physical hardware remain unqualified until verified.
 Both full coherent runs [#44977003402](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/44977003402) and [#44977007875](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/44977007875) compiled the original 34 audio modules and all VIDC translation units except `venus_hfi.c`. Clang 23's warning gate reports `-Wdefault-const-init-field-unsafe` at line 1509 because Qualcomm's MMRM descriptor has a `const char name[]` field and was declared without an initializer.
 
 The existing exact-source adaptation now initializes the whole descriptor with `{ 0 }` before the original clock-domain/ID/name/clock/priority/notifier assignments and MMRM registration. No MMRM API, kernel header, function body, clock name, or compile warning is removed. Strict byte-exact source SHA verification now covers 18 changes in five VIDC source files, including the original Qualcomm `venus_hfi.c` blob. Hardware/production readiness remains unclaimed until full CI and device validation.
+
+## Device-specific Audio source decision (23 November 2026)
+
+The manufacturer mondrian audio-overlay has `qcom,wcn-bt` but no
+`qcom,wcn-btfm` or `qcom,cdc-dmic67-gpios`. MiCode Ziyi WAIPIO lacks the
+extra BT/FM PCM route and GPIO DMIC6/7 processing present in the earlier
+donor branch. LineageOS mondrian `mixer_paths_waipio_mtp.xml` is used
+only as read-only comparison. The selected main source and its AW882xx
+modules now come from the pinned original Xiaomi Ziyi commit; the former
+duplicate Ziyi candidate compilation was removed. Retain unqualified
+Audio HAL/DSP/firmware/runtime flags until full LLVM23 Image, modules,
+ABI and dependency closure succeed. Do not enable FM radio.

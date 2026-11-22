@@ -45,6 +45,15 @@ class OemSourceSelectionTests(unittest.TestCase):
         self.assertTrue(self.cfg["wlan_runtime_closure"]["direct_modinfo_dependencies"])
         self.assertFalse(self.cfg["wlan_runtime_closure"]["vendor_dlkm_packaged"])
 
+    def test_audio_source_is_xiaomi_ziyi_without_fm(self):
+        audio = self.cfg["selected_oem_source_candidates"]["audio"]
+        self.assertEqual(audio["repository"], "MiCode/vendor_qcom_opensource_audio-kernel")
+        self.assertEqual(audio["branch"], "ziyi-s-oss")
+        self.assertEqual(audio["commit_sha"],
+                         "8b1c8d3486a7ac3349d1422201a4436ad852fcb1")
+        self.assertFalse(audio["fm_radio_enabled"])
+        self.assertEqual(audio["status"], "selected_for_oem_waipio_audio_diagnostic_build_abi_pending")
+
     def test_comparison_source_remains_read_only(self):
         self.assertEqual(self.cfg["reference_module_source"]["status"], "read_only_not_selected")
         self.assertIn("FM radio", self.cfg["exclusions"])

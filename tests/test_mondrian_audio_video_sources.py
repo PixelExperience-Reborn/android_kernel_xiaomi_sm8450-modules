@@ -20,6 +20,17 @@ class MediaSourceTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 media.validate_gitmodules(original.replace(url, "https://invalid.example/source.git"))
 
+    def test_mondrian_audio_source_is_xiaomi_ziyi_only(self):
+        audio = media.PINS["upstream/xiaomi-audio"]
+        self.assertEqual(audio[1], "8b1c8d3486a7ac3349d1422201a4436ad852fcb1")
+        self.assertEqual(audio[2]["asoc/waipio.c"],
+                         "208596042b00b136229d990f765782b2d630e278")
+        self.assertEqual(audio[2]["asoc/msm_common.c"],
+                         "ece3ef53694b5141d3248d88f559ce11167257ec")
+        build = (ROOT / "tools/build_mondrian_audio_video.sh").read_text()
+        self.assertIn("tools/apply_ziyi_audio_clang23_fix.py", build)
+        self.assertNotIn("marble-s-oss", build)
+
     def test_real_build_and_staging_in_same_job(self):
         workflow = (ROOT / ".github/workflows/oem-coherent-wlan-compile.yml").read_text()
         builder = (ROOT / "tools/build_mondrian_audio_video.sh").read_text()

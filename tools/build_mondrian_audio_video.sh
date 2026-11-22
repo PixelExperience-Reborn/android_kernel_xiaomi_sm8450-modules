@@ -17,7 +17,7 @@ test -s "$mmrm_sym"
 grep -Fxq 'CONFIG_ARCH_WAIPIO=y' "$kout/.config"
 grep -Fxq 'CONFIG_ARCH_CAPE=y' "$kout/.config"
 python3 tools/verify_mondrian_audio_video_sources.py
-python3 tools/apply_xiaomi_audio_clang23_fix.py --source "$audio" \
+python3 tools/apply_ziyi_audio_clang23_fix.py --source "$audio" \
     --evidence "$RUNNER_TEMP/mondrian-media-audio-patch.json"
 python3 tools/apply_qualcomm_vidc_clang23_fix.py --source "$video" \
     --evidence "$RUNNER_TEMP/mondrian-media-video-patch.json"

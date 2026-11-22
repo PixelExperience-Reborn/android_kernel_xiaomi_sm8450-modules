@@ -96,8 +96,14 @@
     },
     "audio": {
       "repository": "MiCode/vendor_qcom_opensource_audio-kernel",
+      "branch": "ziyi-s-oss",
+      "commit_sha": "8b1c8d3486a7ac3349d1422201a4436ad852fcb1",
       "mondrian_s_oss_branch_exists": false,
-      "status": "qualcomm_release_matching_kernel_must_be_identified"
+      "status": "selected_for_oem_waipio_audio_diagnostic_build_abi_pending",
+      "target_device": "mondrian",
+      "hardware_evidence": "factory WAIPIO audio DTS, dual AW882xx and MI2S2",
+      "fm_radio_enabled": false,
+      "source_provenance": "original Xiaomi pinned gitlink, no LineageOS import"
     },
     "missing_modules": {
       "status": "Remaining Qualcomm BSP source selection and compatibility pending",

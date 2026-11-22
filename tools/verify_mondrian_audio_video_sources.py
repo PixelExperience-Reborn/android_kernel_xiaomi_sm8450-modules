@@ -8,12 +8,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PINS = {
     "upstream/xiaomi-audio": (
         "https://github.com/MiCode/vendor_qcom_opensource_audio-kernel.git",
-        "7d174adfe5304b74889e0cf0e16132a049707710",
+        "8b1c8d3486a7ac3349d1422201a4436ad852fcb1",
         {
             "Kbuild": "f67b0b7c9934b252600b22d960b3ccc44828fee3",
-            "asoc/Kbuild": "69e3e7f123cbf2e369bdc9300df5bcbc8f967d6f",
+            "asoc/Kbuild": "80974f768f6ee05762301f5daa32d8345d53880a",
+            "asoc/waipio.c": "208596042b00b136229d990f765782b2d630e278",
+            "asoc/msm_common.c": "ece3ef53694b5141d3248d88f559ce11167257ec",
             "asoc/codecs/aw882xx/Kbuild": "74f22651d9866b2c0383535821faed841953a2cc",
-            "asoc/codecs/aw882xx/src/aw882xx.c": "52c8501343681552874eb6a5430fdd1a94dab8fd",
+            "asoc/codecs/aw882xx/src/aw882xx.c": "d431f27eb47612e628ade7731ad5f6b790d23725",
             "config/waipioauto.conf": "a8689b631dc4723d0a10d2853f50f3201ab916b7",
         },
     ),
@@ -55,7 +57,11 @@ def verify_checkout(root):
         for name, sha in blobs.items():
             if git(checkout, "hash-object", "--no-filters", name) != sha:
                 raise ValueError("Audio/Video original blob drift: " + path + "/" + name)
-    print("[PASS] Xiaomi Audio and Qualcomm VIDC exact source pins")
+    audio = (root / "upstream/xiaomi-audio/asoc/waipio.c").read_text()
+    if ("qcom,wcn-btfm" in audio or "qcom,cdc-dmic67-gpios" in audio or
+            "qcom,wcn-bt" not in audio):
+        raise ValueError("Selected Ziyi WAIPIO routing no longer matches mondrian")
+    print("[PASS] Xiaomi Ziyi WAIPIO/AW882xx and Qualcomm VIDC exact source pins")
 
 
 if __name__ == "__main__":

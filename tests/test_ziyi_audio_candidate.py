@@ -1,4 +1,4 @@
-"""Source-only tests: vendor-origin Ziyi candidate must not replace Marble."""
+"""Original Xiaomi Ziyi is the sole selected mondrian Audio source."""
 import importlib.util
 from pathlib import Path
 import unittest
@@ -9,7 +9,7 @@ spec = importlib.util.spec_from_file_location(
 z = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(z)
 
-class ZiyiAudioCandidateTests(unittest.TestCase):
+class ZiyiAudioSelectionTests(unittest.TestCase):
     def test_known_micode_revision_and_hardware_source_blobs(self):
         self.assertEqual(z.REVISION, "8b1c8d3486a7ac3349d1422201a4436ad852fcb1")
         self.assertEqual(z.PINS["asoc/msm_common.c"],
@@ -30,18 +30,20 @@ class ZiyiAudioCandidateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             z.fix(changed)
 
-    def test_candidate_separate_from_selected_marble_and_no_fm(self):
-        s = (ROOT / "tools/qualify_ziyi_audio_candidate.sh").read_text()
-        self.assertIn("git clone --quiet --depth 1", s)
-        self.assertIn(z.REVISION.replace(z.REVISION, "expected=8b1c8d3486a7ac3349d1422201a4436ad852fcb1"), s)
-        self.assertIn("--expected-kernel-commit c67ed74", s)
-        self.assertIn("ziyi-audio-abi", s)
-        self.assertNotIn("upstream/xiaomi-audio/", s)
-        self.assertNotIn("radio", s.lower())
-        wf = (ROOT / ".github/workflows/oem-coherent-wlan-compile.yml").read_text()
-        self.assertIn("bash tools/qualify_ziyi_audio_candidate.sh", wf)
-        main = (ROOT / "tools/verify_mondrian_audio_video_sources.py").read_text()
-        self.assertIn("7d174adfe5304b74889e0cf0e16132a049707710", main)
+    def test_selected_audio_is_the_only_audio_build_source(self):
+        builder = (ROOT / "tools/build_mondrian_audio_video.sh").read_text()
+        workflow = (ROOT / ".github/workflows/oem-coherent-wlan-compile.yml").read_text()
+        verifier = (ROOT / "tools/verify_mondrian_audio_video_sources.py").read_text()
+        self.assertIn("python3 tools/apply_ziyi_audio_clang23_fix.py", builder)
+        self.assertIn('audio="$GITHUB_WORKSPACE/upstream/xiaomi-audio"', builder)
+        self.assertIn("bash tools/build_mondrian_audio_video.sh", workflow)
+        self.assertNotIn("qualify_ziyi_audio_candidate", workflow)
+        self.assertNotIn("apply_xiaomi_audio_clang23_fix", workflow)
+        self.assertIn('"qcom,wcn-btfm" in audio', verifier)
+        self.assertIn('"qcom,cdc-dmic67-gpios" in audio', verifier)
+        self.assertNotIn("marble-s-oss", builder + workflow + verifier)
+        self.assertIn('"audio_hal_and_hardware_verified": False', workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

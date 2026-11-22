@@ -12,7 +12,6 @@ on:
       - upstream/xiaomi-audio
       - upstream/qualcomm/video
       - tools/build_mondrian_audio_video.sh
-      - tools/apply_xiaomi_audio_clang23_fix.py
       - tools/apply_qualcomm_vidc_clang23_fix.py
       - tests/test_qualcomm_vidc_clang23_fix.py
       - tests/test_xiaomi_audio_clang23_fix.py
@@ -23,7 +22,6 @@ on:
       - tools/config/mondrian_gki_hardening.config
       - tools/verify_mondrian_kernel_hardening.py
       - tests/test_mondrian_kernel_hardening.py
-      - tools/qualify_ziyi_audio_candidate.sh
       - tools/apply_ziyi_audio_clang23_fix.py
       - tests/test_ziyi_audio_candidate.py
       - tests/test_ci_concurrency.py
@@ -322,8 +320,6 @@ jobs:
           echo "[PENDING] mondrian hardware sensors/LED channel/Android Camera HAL" >> "$GITHUB_STEP_SUMMARY"
       - name: Build Xiaomi Qualcomm Audio, AW882xx and Qualcomm VIDC against exact OEM kernel
         run: bash tools/build_mondrian_audio_video.sh
-      - name: Qualify factory-like Ziyi Audio against the SAME OEM kernel (candidate only)
-        run: bash tools/qualify_ziyi_audio_candidate.sh
       - name: Verify WLAN/MMRM/Display/Camera/Audio/Video and critical OEM module dependency closures
         run: |
           set -euo pipefail
@@ -542,7 +538,6 @@ jobs:
             upstream/qualcomm/video/msm_video.ko
             ${{ runner.temp }}/mondrian-media-*
             ${{ runner.temp }}/media-abi/
-            ${{ runner.temp }}/ziyi-audio-*
             ${{ runner.temp }}/mondrian-camera-ois-power-evidence.json
             ${{ runner.temp }}/camera-oem-build.log
             ${{ runner.temp }}/camera-clang23-fix-evidence.json

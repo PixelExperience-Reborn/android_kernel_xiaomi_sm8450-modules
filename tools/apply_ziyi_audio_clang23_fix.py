@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate and correct *only* the two LLVM23 Xiaomi Ziyi QoS prototypes."""
+"""Qualify selected Xiaomi Ziyi Audio and correct only two LLVM23 QoS prototypes."""
 import argparse
 import hashlib
 import json
@@ -68,6 +68,7 @@ def qualify(source, evidence):
         "ziyi_commit": REVISION, "original_files": PINS,
         "msm_common_patched_blob": blob(updated),
         "prototypes_fixed": [x.decode() for x in PROTOTYPES],
+        "audio_source_selected_for_bsp_build": True,
         "audio_product_selected": False, "runtime_verified": False,
         "fm_product_feature_enabled": False,
     }, indent=2, sort_keys=True) + "\n")
