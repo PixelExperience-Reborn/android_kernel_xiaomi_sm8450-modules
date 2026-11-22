@@ -39,6 +39,14 @@ PATCHES = (
         "to": b"struct ce_ops *ce_services_legacy(void)\n",
     },
     {
+        "path": "qca-wifi-host-cmn/hif/src/ce/ce_service_srng.c",
+        "blob": "318f50f93229be97404394b882ad9ebae73b4a67",
+        # PCIe QCA6490 uses CE SRNG; the old SNOC build never compiled it.
+        # Qualcomm's existing callers expect the same ce_ops* ABI.
+        "from": b"struct ce_ops *ce_services_srng()\n",
+        "to": b"struct ce_ops *ce_services_srng(void)\n",
+    },
+    {
         "path": "qca-wifi-host-cmn/hif/src/dispatcher/multibus_snoc.c",
         "blob": "0f430dde55390ddceebe43b4019453cdf999ff18",
         # Same Qualcomm FEATURE_IRQ_AFFINITY guard as multibus.h

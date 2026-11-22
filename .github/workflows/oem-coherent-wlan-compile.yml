@@ -18,6 +18,8 @@ on:
       - tests/test_xiaomi_audio_clang23_fix.py
       - tools/verify_mondrian_audio_video_sources.py
       - tests/test_mondrian_wlan_pcie_profile.py
+      - tools/apply_oem_wlan_fix.py
+      - tests/test_oem_wlan_pcie_srng.py
       - tools/config/mondrian_gki_hardening.config
       - tools/verify_mondrian_kernel_hardening.py
       - tests/test_mondrian_kernel_hardening.py
