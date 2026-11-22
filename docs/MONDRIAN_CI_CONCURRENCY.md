@@ -1,16 +1,19 @@
-# CI push / PR duplicate build control
+# CI duplicate build cancellation — correct event semantics
 
-The active build branch is
-bringup/a17-mondrian-oem-bsp-20261111 in the PE-Reborn modules repo.
-Previously both push and PR events had separate concurrency group suffixes
-(event name). Therefore an identical commit ran a complete OEM Image,
-WLAN/MMRM/Display/Camera/Audio/VIDC rebuild twice in parallel.
+Coherent Kernel+WLAN+Display+Camera+Audio+VIDC workflow previously ran
+two identical full builds on both push and pull_request of the same source
+SHA. It now groups by the source branch
+`github.head_ref || github.ref_name` and cancels superseded runs, keeping
+the latest required full coherent ABI qualification.
 
-Both build workflows now use github.head_ref || github.ref_name as the
-concurrency key. This is the actual source branch for both event types.
-cancel-in-progress prevents duplicate heavy jobs on superseding runs.
+The independent WLAN workflow has asymmetric jobs: source checks run on
+push and PR, but the actual `external-wlan` compile only runs on **push**.
+Using the same cross-event concurrency group there would let a PR source-only
+run cancel the **only** full WLAN job and silently lose required evidence.
+Therefore WLAN keeps event-specific cancellation; newer *push* checks
+replace older push checks and PR source checks cannot cancel them.
 
-Independent source contracts, Camera ABI and strict full compile remain
-required by their workflows. This does not skip checks based on build
-success of another SHA. Avoids unnecessary Linux 5.10.81/LLVM23 rebuilds
-when a single commit triggers both push and pull_request.
+The two distinct workflows still each compile their selected OEM kernel
+with Clang23, to establish independent WLAN and whole-component ABI
+contracts. This is deliberate verification, not duplicate Git history.
+No successful test is skipped, and no warning/ABI flags are bypassed.
