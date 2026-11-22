@@ -77,6 +77,10 @@ def verify_factory_profiles(hal, camera):
 
 
 def fdtget(image, node, property_name=None, fmt=None, *, tool="fdtget"):
+    # dtc fdtget accepts u (unsigned 32-bit), i (signed), s (string);
+    # d is a printf conversion, NOT a valid -t argument (AOSP 17 dtc).
+    if fmt not in (None, "u", "s") or (property_name is None and fmt is not None):
+        raise ValueError("invalid or misplaced fdtget format: " + repr(fmt))
     args = [tool]
     if property_name is None:
         args += ["-p"]
@@ -85,7 +89,16 @@ def fdtget(image, node, property_name=None, fmt=None, *, tool="fdtget"):
     args += [str(image), node]
     if property_name is not None:
         args.append(property_name)
-    return subprocess.check_output(args, text=True, stderr=subprocess.PIPE).strip()
+    completed = subprocess.run(args, capture_output=True, text=True, check=False)
+    if completed.returncode:
+        # Preserve actual libfdt errors, rather than a bare exit status
+        # that obscures wrong CLI flags, missing nodes and corrupt DTBs.
+        diagnostic = completed.stderr.strip() or "no stderr"
+        raise ValueError(
+            "fdtget failed for " + str(image) + " " + node + " " +
+            repr(property_name) + " (type=" + repr(fmt) + "): " +
+            diagnostic[:1000])
+    return completed.stdout.strip()
 
 
 def inspect_compiled_boards(camera, out_dir, records, *, fdt_tool="fdtget"):
@@ -129,7 +142,10 @@ def inspect_compiled_boards(camera, out_dir, records, *, fdt_tool="fdtget"):
             if role == "ultra":
                 if "gpio-reset" in eeprom_props:
                     raise ValueError("ultrawide EEPROM would incorrectly toggle MCLK as reset")
-                if fdtget(image, sensor, "gpio-reset", "d", tool=fdt_tool) != "1":
+                if "gpio-reset" not in sensor_props:
+                    raise ValueError("ultrawide sensor GPIO reset property missing")
+                # AOSP 17 dtc: -t u reads a 32-bit unsigned cell.
+                if fdtget(image, sensor, "gpio-reset", "u", tool=fdt_tool) != "1":
                     raise ValueError("ultrawide sensor reset index is not TLMM24")
             result[role] = {"camera_id": index, "eeprom_regulator_names": list(names),
                             "standalone_ois_link_absent": True}

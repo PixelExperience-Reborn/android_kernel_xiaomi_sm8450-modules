@@ -3,6 +3,8 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
+import hashlib
+from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
@@ -81,15 +83,60 @@ class CameraOisPowerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not tied"):
             mod.verify_factory_profiles(h, c)
 
-    def test_fdt_reader_cannot_ignore_failed_compiled_probe(self):
-        with patch.object(mod.subprocess, "check_output",
-                          side_effect=subprocess_error()):
-            with self.assertRaises(mod.subprocess.CalledProcessError):
-                mod.fdtget(Path("/bad.dtb"), "/soc/sensor0", "cell-index", "d")
+    def test_fdt_reader_uses_aosp17_unsigned_cell_type(self):
+        image = Path("/tmp/diagnostic.dtb")
+        result = mod.subprocess.CompletedProcess(["fdtget"], 0, "1\n", "")
+        with patch.object(mod.subprocess, "run", return_value=result) as run:
+            self.assertEqual(
+                mod.fdtget(image, "/soc/sensor2", "gpio-reset", "u"), "1")
+            self.assertEqual(run.call_args.args[0], [
+                "fdtget", "-t", "u", str(image), "/soc/sensor2", "gpio-reset"])
+            self.assertEqual(run.call_args.kwargs["capture_output"], True)
 
+    def test_fdt_reader_rejects_invalid_d_and_missing_property(self):
+        with patch.object(mod.subprocess, "run") as run:
+            with self.assertRaisesRegex(ValueError, "invalid or misplaced"):
+                mod.fdtget(Path("/test.dtb"), "/sensor", "gpio-reset", "d")
+            run.assert_not_called()
+        failed = mod.subprocess.CompletedProcess(
+            ["fdtget"], 1, "", "Error at 'gpio-reset': FDT_ERR_NOTFOUND\n")
+        with patch.object(mod.subprocess, "run", return_value=failed):
+            with self.assertRaisesRegex(ValueError, "FDT_ERR_NOTFOUND"):
+                mod.fdtget(Path("/test.dtb"), "/sensor", "gpio-reset", "u")
 
-def subprocess_error():
-    return mod.subprocess.CalledProcessError(1, ["fdtget"])
+    def test_three_compiled_boards_check_unsigned_reset_not_disabled_ois(self):
+        hal, camera = fixtures()
+        records = mod.verify_factory_profiles(hal, camera)
+        calls = []
+        with TemporaryDirectory() as tmp:
+            images = Path(tmp) / "images"
+            images.mkdir()
+            for cape in mod.CAPE_BASES:
+                image = images / (cape + "-mondrian-camera-board-diagnostic.dtb")
+                image.write_bytes(b"synthetic FDT test fixture only:" + bytes(96))
+                camera["per_board"][cape]["camera_board_merged_sha256"] = (
+                    hashlib.sha256(image.read_bytes()).hexdigest())
+            def fake_fdtget(image, node, property_name=None, fmt=None, *, tool="fdtget"):
+                calls.append((image.name, node, property_name, fmt))
+                if property_name == "gpio-reset":
+                    self.assertEqual(fmt, "u")
+                    self.assertTrue(node.endswith("sensor2"))
+                    return "1"
+                if property_name == "regulator-names":
+                    self.assertEqual(fmt, "s")
+                    index = int(node.rsplit("eeprom", 1)[1])
+                    return " ".join(records[index]["expected_eeprom_fdt_regulator_names"])
+                if "eeprom" in node:
+                    return "regulator-names\ncell-index\n"
+                return ("cell-index\neeprom-src\ncsiphy-sd-index\n"
+                        + ("actuator-src\n" if node.endswith("sensor0") else "")
+                        + ("gpio-reset\n" if node.endswith("sensor2") else ""))
+            with patch.object(mod, "fdtget", side_effect=fake_fdtget):
+                actual = mod.inspect_compiled_boards(camera, Path(tmp), records)
+        self.assertEqual(set(actual), set(mod.CAPE_BASES))
+        resets = [row for row in calls if row[2] == "gpio-reset"]
+        self.assertEqual(len(resets), 3)
+        self.assertTrue(all(row[3] == "u" for row in resets))
 
 
 if __name__ == "__main__":

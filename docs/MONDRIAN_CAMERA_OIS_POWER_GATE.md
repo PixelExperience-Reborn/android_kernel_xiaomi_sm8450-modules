@@ -25,3 +25,11 @@ unverified OIS/flash GPIO commands, production DTBO or modules.load
 selection is added. Camera HAL probing, EEPROM reads, real AK7323
 control, stabilization, power-cycle timing and physical testing remain
 pending before Stage 2 can be considered hardware-ready.
+
+## 22 November 2026 — correct a test-only fdtget format error
+
+Both coherent builds [#45029755654](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/45029755654) and [#45029907370](https://github.com/PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules/actions/runs/45029907370) compiled the full OEM Image, Camera, AW882xx, Qualcomm VIDC, DTBs and M11A. Both failed solely in this **new** OIS/power check because the fdtget CLI used `-t d` for the ultrawide sensor's `gpio-reset` cell. The official Android 17 external/dtc implementation accepts `-t u` for unsigned cells, not `-t d`. The pre-existing independent compiled Camera board FDT verifier had already confirmed the reset index is 1 and that the EEPROM deliberately has no reset property.
+
+The fix changes only the checker to read the exact 32-bit unsigned value, explicitly rejects unsupported formatting, and reports the underlying libfdt stderr on future failures. Added positive/negative CLI tests and a three-variant compiled-board mock exercise. The manufacturer DTS, sensor configuration, power sequencing, OIS driver, original kernel, modules, firmware and product packaging remain untouched.
+
+Android 17 authoritative CLI reference: https://android.googlesource.com/platform/external/dtc/+/refs/heads/android17-release/fdtget.c
