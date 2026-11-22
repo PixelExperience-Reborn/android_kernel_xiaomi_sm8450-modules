@@ -1,0 +1,12 @@
+diff --git a/drivers/cam_sensor_module/cam_ois/cam_ois_dev.c b/drivers/cam_sensor_module/cam_ois/cam_ois_dev.c
+--- a/drivers/cam_sensor_module/cam_ois/cam_ois_dev.c
++++ b/drivers/cam_sensor_module/cam_ois/cam_ois_dev.c
+@@ -502,6 +502,8 @@ int cam_ois_driver_init(void)
+ 	rc = i2c_add_driver(&cam_ois_i2c_driver);
+ 	if (rc) {
+ 		CAM_ERR(CAM_OIS, "i2c_add_driver failed rc = %d", rc);
++		platform_driver_unregister(&cam_ois_platform_driver);
++		registered_driver.platform_driver = 0;
+ 		return rc;
+ 	}
+ 
