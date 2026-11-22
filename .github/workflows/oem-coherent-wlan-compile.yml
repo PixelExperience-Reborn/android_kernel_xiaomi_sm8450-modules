@@ -25,6 +25,9 @@ on:
       - xiaomi-camera-source
       - tools/verify_mondrian_camera_elf.py
       - tools/verify_mondrian_camera_wl2866d_abi.py
+      - tools/verify_mondrian_camera_ois_power.py
+      - tests/test_mondrian_camera_ois_power.py
+      - tests/fixtures/mondrian-camera-hal-profiles.json
       - tests/test_mondrian_camera_wl2866d_abi.py
       - tools/select_mondrian_pmic_flash.py
       - mondrian-camera-flash-policy.json
@@ -449,6 +452,16 @@ jobs:
           PY
           echo "[PASS] Three-repository OEM Image/Modules/Camera/Audio-DTB diagnostic build" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] Production boot/DTBO/modules.load and physical Camera/Audio/LHBM/UDFPS" >> "$GITHUB_STEP_SUMMARY"
+      - name: Qualify exact mondrian camera EEPROM power and OIS non-enablement
+        run: |
+          set -euo pipefail
+          python3 tools/verify_mondrian_camera_ois_power.py \
+            --profiles device-tree/mondrian-camera-hal-profiles.json \
+            --camera-evidence "$RUNNER_TEMP/mondrian-coherent-camera-platform/mondrian-camera-platform-diagnostic-evidence.json" \
+            --board-build "$RUNNER_TEMP/mondrian-coherent-camera-platform" \
+            --out "$RUNNER_TEMP/mondrian-camera-ois-power-evidence.json"
+          echo "[PASS] OEM Camera EEPROM power records, actuator and OIS absence in all three compiled DTBs" >> "$GITHUB_STEP_SUMMARY"
+          echo "[PENDING] AK7323 standalone OIS transport/commands and physical power-on tests" >> "$GITHUB_STEP_SUMMARY"
       - name: Check reusable diagnostic Image, modules and matching SHA256 manifest
         run: |
           set -euo pipefail
@@ -493,6 +506,7 @@ jobs:
             upstream/qualcomm/video/msm_video.ko
             ${{ runner.temp }}/mondrian-media-*
             ${{ runner.temp }}/media-abi/
+            ${{ runner.temp }}/mondrian-camera-ois-power-evidence.json
             ${{ runner.temp }}/camera-oem-build.log
             ${{ runner.temp }}/camera-clang23-fix-evidence.json
             ${{ runner.temp }}/camera-pmic-selection-evidence.json
