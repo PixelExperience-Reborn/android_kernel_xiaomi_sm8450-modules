@@ -16,7 +16,7 @@ class CIConcurrencyTests(unittest.TestCase):
             "group: mondrian-coherent-external-wlan-build-${{ github.head_ref || github.ref_name }}",
             text,
         )
-        self.assertIn("cancel-in-progress: true", text)
+        self.assertIn("cancel-in-progress: false", text)
         self.assertIn("    needs: source", text)
         self.assertIn("    timeout-minutes: 90", text)
 
@@ -24,7 +24,7 @@ class CIConcurrencyTests(unittest.TestCase):
         text = (ROOT / ".github/workflows/oem-wlan-compile.yml").read_text()
         self.assertIn("group: mondrian-oem-external-wlan-build-${{ github.event_name }}", text)
         self.assertIn("if: github.event_name == 'workflow_dispatch'", text)
-        self.assertIn("cancel-in-progress: true", text)
+        self.assertIn("cancel-in-progress: false", text)
         self.assertIn("    needs: source", text)
         self.assertIn("CONFIG_CNSS_QCA6490=y CONFIG_ROME_IF=pci", text)
         self.assertIn("multibus_pci.o", text)

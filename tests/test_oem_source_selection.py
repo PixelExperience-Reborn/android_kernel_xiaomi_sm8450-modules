@@ -24,7 +24,7 @@ class OemSourceSelectionTests(unittest.TestCase):
 
     def test_no_unverified_external_driver_or_abi_claim(self):
         selected = self.cfg["selected_oem_source_candidates"]
-        self.assertEqual(self.cfg["build_status"], "oem_kernel_mmrm_wlan_compile_pass_other_bsp_incomplete")
+        self.assertEqual(self.cfg["build_status"], "current_kernel_full_lto_and_external_bsp_abi_pending")
         verified = self.cfg["last_verified_build"]
         self.assertEqual(verified["run_id"], 43088150435)
         self.assertEqual(verified["head"],
@@ -32,8 +32,8 @@ class OemSourceSelectionTests(unittest.TestCase):
         self.assertTrue(verified["kernel_llvm23_compiled"])
         self.assertTrue(verified["mmrm_compiled"])
         self.assertTrue(verified["wlan_compiled"])
-        self.assertTrue(selected["abi_verified"])
-        self.assertTrue(selected["external_ko_compiled"])
+        self.assertFalse(selected["abi_verified"])
+        self.assertFalse(selected["external_ko_compiled"])
         self.assertFalse(verified["vendor_dlkm_release_qualified"])
         self.assertFalse(verified["device_runtime_qualified"])
         self.assertFalse(selected["vendor_dlkm_packaged"])
@@ -44,6 +44,25 @@ class OemSourceSelectionTests(unittest.TestCase):
         self.assertNotIn("MMRM", selected["missing_modules"]["categories"])
         self.assertTrue(self.cfg["wlan_runtime_closure"]["direct_modinfo_dependencies"])
         self.assertFalse(self.cfg["wlan_runtime_closure"]["vendor_dlkm_packaged"])
+
+
+    def test_selected_kernel_matches_both_ci_paths_and_no_abi_implicit_fallback(self):
+        """Old verified run is historical, not proof for the active pinned kernel."""
+        selected = self.cfg["selected_oem_source_candidates"]
+        current = "c67ed74ffe11bd2133b560078a20cf0c04e18d97"
+        old = "2466406b9beac724960b0c88e6e794421d0466e7"
+        self.assertEqual(selected["selected_kernel"]["commit_sha"], current)
+        self.assertEqual(self.cfg["wlan_runtime_closure"]["kernel_commit"], current)
+        self.assertNotEqual(current, old)
+        self.assertTrue(self.cfg["last_verified_build"]["kernel_llvm23_compiled"])
+        for filename in ("oem-coherent-wlan-compile.yml", "oem-wlan-compile.yml"):
+            workflow = (ROOT / ".github/workflows" / filename).read_text()
+            self.assertIn("ref: " + current, workflow)
+            self.assertNotIn("ref: " + old, workflow)
+        helper = (ROOT / "tools/verify_external_module_abi.py").read_text()
+        self.assertIn('p.add_argument("--expected-kernel-commit", required=True,', helper)
+        self.assertNotIn("DEFAULT_KERNEL_COMMIT", helper)
+        self.assertIn('kernel_sha=c67ed74ffe11bd2133b560078a20cf0c04e18d97', (ROOT / "tools/build_mondrian_audio_video.sh").read_text())
 
     def test_audio_source_is_xiaomi_ziyi_without_fm(self):
         audio = self.cfg["selected_oem_source_candidates"]["audio"]

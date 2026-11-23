@@ -25,6 +25,7 @@ on:
       - tests/test_ci_concurrency.py
       - tests/test_mondrian_lto_ci_resources.py
       - tools/prepare_mondrian_lto_resources.sh
+      - tools/prepare_mondrian_lto_linker.sh
       - .github/workflows/oem-wlan-compile.yml
       - tests/test_mondrian_audio_video_sources.py
       - tools/audit_mondrian_kernel_module_inventory.py
@@ -49,7 +50,7 @@ on:
 
 concurrency:
   group: mondrian-coherent-external-wlan-build-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -76,6 +77,7 @@ jobs:
           python3 tools/verify_qcom_mmrm.py
           bash -n tools/install_ci_prerequisites.sh
           bash -n tools/prepare_mondrian_lto_resources.sh
+          bash -n tools/prepare_mondrian_lto_linker.sh
           bash tools/install_ci_prerequisites.sh --print-sources > /tmp/mondrian-apt-sources.list
           grep -Fq 'https://archive.ubuntu.com/ubuntu' /tmp/mondrian-apt-sources.list
           grep -Fq 'https://security.ubuntu.com/ubuntu' /tmp/mondrian-apt-sources.list
@@ -159,6 +161,9 @@ jobs:
           df -h "$RUNNER_TEMP"
           swapon --show
           echo "::endgroup::"
+          # Use the same exact Google LLVM23 linker, but bound LLD's own threads.
+          # This does NOT select ThinLTO, remove CFI/SCS/HW-tag KASAN, or touch OEM code.
+          source tools/prepare_mondrian_lto_linker.sh
           # Retain all HW KASAN, Full LTO, CFI and SCS build settings.
           # -j2 bounds concurrent compilations; LTO link remains real.
           monitor_resources() {
@@ -168,13 +173,26 @@ jobs:
               df -h "$RUNNER_TEMP"
               swapon --show || true
               ps -eo pid,comm,rss,%mem,%cpu --sort=-rss | head -n 12 || true
+              cat /sys/fs/cgroup/memory.events 2>/dev/null || true
+              cat /proc/pressure/memory 2>/dev/null || true
               echo "::endgroup::"
               sleep 90
             done
           }
           monitor_resources &
           monitor_pid=$!
-          trap 'kill "$monitor_pid" 2>/dev/null || true' EXIT
+          report_link_outcome() {
+            local status=$?
+            kill "$monitor_pid" 2>/dev/null || true
+            if (( status != 0 )); then
+              echo "::error::OEM Full LTO exited with status $status; runner cancellation, OOM and linker failure require separate evidence"
+              free -m || true
+              df -h "$RUNNER_TEMP" || true
+              cat /sys/fs/cgroup/memory.events 2>/dev/null || true
+              cat /proc/pressure/memory 2>/dev/null || true
+            fi
+          }
+          trap report_link_outcome EXIT
           make -C kernel O="$RUNNER_TEMP/mondrian-out" -j2 vmlinux Image modules
           test -s "$RUNNER_TEMP/mondrian-out/Module.symvers"
       - name: Verify OEM mondrian Camera power LDO driver and compiled module

@@ -7,8 +7,6 @@ import re
 from pathlib import Path
 import subprocess
 
-DEFAULT_KERNEL_COMMIT = "2466406b9beac724960b0c88e6e794421d0466e7"
-
 
 def command(args):
     return subprocess.check_output(args, text=True).strip()
@@ -19,8 +17,8 @@ def main():
     p.add_argument("--kernel-out", type=Path, required=True)
     p.add_argument("--module", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
-    p.add_argument("--expected-kernel-commit", default=DEFAULT_KERNEL_COMMIT,
-                   help="Explicit 40-hex SHA of the checked-out kernel; defaults to the qualified OEM-only source")
+    p.add_argument("--expected-kernel-commit", required=True,
+                   help="Required explicit 40-hex SHA of the selected OEM kernel; no implicit older-revision fallback")
     args = p.parse_args()
     kernel = args.kernel.resolve()
     output = args.kernel_out.resolve()
