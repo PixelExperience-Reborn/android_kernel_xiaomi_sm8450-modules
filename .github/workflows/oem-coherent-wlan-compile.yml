@@ -1,10 +1,8 @@
 name: Qualify coherent mondrian OEM Image, Display, WLAN, MMRM, Camera, Audio and Video
 
 on:
-  push:
-    branches: [bringup/a17-mondrian-oem-bsp-20261111]
-  # Full OEM build must also run on the active bringup PR; otherwise
-  # GitHub's PR-only checks validate sources but skip the kernel/module job.
+  # Full kernel and all modules are built once, via pull_request or manual
+  # workflow_dispatch. No redundant push Full LTO on a second runner.
   pull_request:
     paths:
       - .github/workflows/oem-coherent-wlan-compile.yml
@@ -25,6 +23,9 @@ on:
       - tools/apply_ziyi_audio_clang23_fix.py
       - tests/test_ziyi_audio_candidate.py
       - tests/test_ci_concurrency.py
+      - tests/test_mondrian_lto_ci_resources.py
+      - tools/prepare_mondrian_lto_resources.sh
+      - .github/workflows/oem-wlan-compile.yml
       - tests/test_mondrian_audio_video_sources.py
       - tools/audit_mondrian_kernel_module_inventory.py
       - tests/test_kernel_module_inventory.py
@@ -74,6 +75,7 @@ jobs:
           python3 tools/apply_oem_wlan_fix.py
           python3 tools/verify_qcom_mmrm.py
           bash -n tools/install_ci_prerequisites.sh
+          bash -n tools/prepare_mondrian_lto_resources.sh
           bash tools/install_ci_prerequisites.sh --print-sources > /tmp/mondrian-apt-sources.list
           grep -Fq 'https://archive.ubuntu.com/ubuntu' /tmp/mondrian-apt-sources.list
           grep -Fq 'https://security.ubuntu.com/ubuntu' /tmp/mondrian-apt-sources.list
@@ -145,6 +147,8 @@ jobs:
             --out "$RUNNER_TEMP/mondrian-gki-hardening-evidence.json"
           python3 kernel/tools/verify_mondrian_oem_eroFS.py \
             --generated-config "$RUNNER_TEMP/mondrian-out/.config"
+      - name: Prepare bounded Full LTO memory and disk headroom
+        run: bash tools/prepare_mondrian_lto_resources.sh
       - name: Build full OEM vmlinux and in-tree modules first
         run: |
           set -euo pipefail
@@ -155,7 +159,23 @@ jobs:
           df -h "$RUNNER_TEMP"
           swapon --show
           echo "::endgroup::"
-          make -C kernel O="$RUNNER_TEMP/mondrian-out" -j3 vmlinux Image modules
+          # Retain all HW KASAN, Full LTO, CFI and SCS build settings.
+          # -j2 bounds concurrent compilations; LTO link remains real.
+          monitor_resources() {
+            while :; do
+              echo "::group::mondrian kernel RSS and headroom $(date -u +%FT%TZ)"
+              free -m
+              df -h "$RUNNER_TEMP"
+              swapon --show || true
+              ps -eo pid,comm,rss,%mem,%cpu --sort=-rss | head -n 12 || true
+              echo "::endgroup::"
+              sleep 90
+            done
+          }
+          monitor_resources &
+          monitor_pid=$!
+          trap 'kill "$monitor_pid" 2>/dev/null || true' EXIT
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" -j2 vmlinux Image modules
           test -s "$RUNNER_TEMP/mondrian-out/Module.symvers"
       - name: Verify OEM mondrian Camera power LDO driver and compiled module
         run: |

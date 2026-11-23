@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  # PR only runs source tests; keep its cancellation separate from the push
-  # event, which owns the actual long running external-wlan compile.
+  # Push/PR run fast source checks only. Full standalone WLAN builds are
+  # opt-in via workflow_dispatch; coherent PR owns automatic Full LTO.
   group: mondrian-oem-external-wlan-build-${{ github.event_name }}
   cancel-in-progress: true
 
@@ -31,6 +31,7 @@ jobs:
           python3 tools/apply_oem_wlan_fix.py
           python3 tools/verify_qcom_mmrm.py
           bash -n tools/install_ci_prerequisites.sh
+          bash -n tools/prepare_mondrian_lto_resources.sh
           bash tools/install_ci_prerequisites.sh --print-sources > /tmp/mondrian-apt-sources.list
           grep -Fq 'https://archive.ubuntu.com/ubuntu' /tmp/mondrian-apt-sources.list
           grep -Fq 'https://security.ubuntu.com/ubuntu' /tmp/mondrian-apt-sources.list
@@ -40,7 +41,7 @@ jobs:
           fi
 
   external-wlan:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     needs: source
     runs-on: ubuntu-24.04
     timeout-minutes: 75
@@ -93,6 +94,8 @@ jobs:
             --out "$RUNNER_TEMP/mondrian-gki-hardening-evidence.json"
           python3 kernel/tools/verify_mondrian_oem_eroFS.py \
             --generated-config "$RUNNER_TEMP/mondrian-out/.config"
+      - name: Prepare bounded Full LTO memory and disk headroom
+        run: bash tools/prepare_mondrian_lto_resources.sh
       - name: Build full OEM vmlinux and in-tree modules first
         run: |
           set -euo pipefail
@@ -103,7 +106,23 @@ jobs:
           df -h "$RUNNER_TEMP"
           swapon --show
           echo "::endgroup::"
-          make -C kernel O="$RUNNER_TEMP/mondrian-out" -j3 vmlinux Image modules
+          # Retain all HW KASAN, Full LTO, CFI and SCS build settings.
+          # -j2 bounds concurrent compilations; LTO link remains real.
+          monitor_resources() {
+            while :; do
+              echo "::group::mondrian kernel RSS and headroom $(date -u +%FT%TZ)"
+              free -m
+              df -h "$RUNNER_TEMP"
+              swapon --show || true
+              ps -eo pid,comm,rss,%mem,%cpu --sort=-rss | head -n 12 || true
+              echo "::endgroup::"
+              sleep 90
+            done
+          }
+          monitor_resources &
+          monitor_pid=$!
+          trap 'kill "$monitor_pid" 2>/dev/null || true' EXIT
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" -j2 vmlinux Image modules
           test -s "$RUNNER_TEMP/mondrian-out/Module.symvers"
       - name: Apply reviewed Xiaomi WLAN header correction
         run: |

@@ -46,3 +46,14 @@ or a successful `vmlinux` link. Preserve all security settings and
 require a completed kernel + external modules build before qualification.
 Both full CI paths now record memory, disk and swap information before
 starting the LTO link to help diagnose future environmental failures.
+
+## CI resource isolation after repeated LTO termination (23 November 2026)
+
+Two automatic full kernel links were previously launched by separate
+WLAN/coherent workflows on different GitHub virtual machines. PR coherent
+qualification is now the only automatic full OEM link; independent full
+WLAN compilation is manual opt-in. This avoids redundant CI, not a shared
+RAM conflict. Both full link paths retain HW-tag KASAN, Full LTO, CFI and
+SCS, use `make -j2`, a bounded optional 3 GiB swap backed by verified free
+SSD space, and a low-overhead RSS/memory monitor. No OOM assumption is
+made until a completed runner log supplies conclusive diagnostics.
