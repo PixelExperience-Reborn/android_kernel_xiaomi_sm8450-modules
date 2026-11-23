@@ -17,10 +17,10 @@ class ModuleStagingTests(unittest.TestCase):
     def test_exact_oem_mondrian_dependency_symbols(self):
         self.assertEqual(
             module.ROOT_WLAN_DEPS,
-            frozenset(("icnss2", "mi_cnss_statistic", "cfg80211",
+            frozenset(("cnss2", "mi_cnss_statistic", "cfg80211",
                        "cnss_prealloc", "cnss_nl", "cnss_utils"))
         )
-        self.assertEqual(len(module.REQUIRED_CONFIG), 6)
+        self.assertEqual(len(module.REQUIRED_CONFIG), 7)
 
     def test_recursive_dependency_topological_order(self):
         files = {"wlan": Path("wlan.ko"), "cfg80211": Path("cfg80211.ko"),
