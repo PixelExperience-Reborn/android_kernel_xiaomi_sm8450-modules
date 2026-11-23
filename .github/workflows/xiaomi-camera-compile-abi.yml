@@ -1,26 +1,8 @@
 name: Diagnostic Xiaomi SM8475 Camera build and OEM ABI (not production)
 
 on:
-  push:
-    branches: [bringup/a17-mondrian-oem-bsp-20261111]
-    paths:
-      - .github/workflows/xiaomi-camera-compile-abi.yml
-      - patches/mondrian-m11a-csiphy.patch
-      - patches/mondrian-wl2866d-power-rollback.patch
-      - patches/mondrian-camera-shared-pinctrl-gpios.patch
-      - patches/mondrian-camera-ois-driver-init-rollback.patch
-      - tests/test_mondrian_camera_ois_rollback.py
-      - tools/apply_xiaomi_camera_clang23_fix.py
-      - tests/test_xiaomi_camera_clang23_fix.py
-      - tools/select_mondrian_pmic_flash.py
-      - tests/test_mondrian_pmic_flash.py
-      - tools/verify_mondrian_camera_elf.py
-      - tests/test_mondrian_camera_elf.py
-      - mondrian-camera-flash-policy.json
-      - .gitmodules
-      - xiaomi-camera-source
-      - tools/verify_xiaomi_camera_submodule.py
-      - tests/test_xiaomi_camera_submodule.py
+  # Build the complete OEM kernel plus camera modules only when explicitly
+  # requested; push/PR source gates are covered by module-contract.yml.
   workflow_dispatch:
 
 permissions:

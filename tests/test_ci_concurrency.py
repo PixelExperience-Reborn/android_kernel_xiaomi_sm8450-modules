@@ -21,6 +21,19 @@ class CIConcurrencyTests(unittest.TestCase):
         self.assertIn("    timeout-minutes: 90", text)
         self.assertIn("    if: github.event_name == 'workflow_dispatch'", text)
 
+    def test_camera_full_kernel_compile_is_manual_only(self):
+        text = (ROOT / ".github/workflows/xiaomi-camera-compile-abi.yml").read_text()
+        triggers = text.split("jobs:\n", 1)[0]
+        self.assertIn("\n  workflow_dispatch:\n", triggers)
+        self.assertNotIn("\n  push:\n", triggers)
+        self.assertNotIn("\n  pull_request:\n", triggers)
+        self.assertIn("Compile real OEM vmlinux, Image and Module.symvers", text)
+        # The regular unit-test suite is still run on every push and PR.
+        contracts = (ROOT / ".github/workflows/module-contract.yml").read_text()
+        self.assertIn("\n  push:\n", contracts)
+        self.assertIn("\n  pull_request:\n", contracts)
+        self.assertIn("python3 -m unittest discover -s tests -v", contracts)
+
     def test_standalone_wlan_is_source_only_automatically(self):
         text = (ROOT / ".github/workflows/oem-wlan-compile.yml").read_text()
         self.assertIn("group: mondrian-oem-external-wlan-build-${{ github.event_name }}", text)
