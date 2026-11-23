@@ -16,11 +16,11 @@ import sys
 
 KERNEL_SHA = "c67ed74ffe11bd2133b560078a20cf0c04e18d97"
 ROOT_WLAN_DEPS = frozenset(
-    ("icnss2", "mi_cnss_statistic", "cfg80211",
+    ("cnss2", "mi_cnss_statistic", "cfg80211",
      "cnss_prealloc", "cnss_nl", "cnss_utils")
 )
 REQUIRED_CONFIG = (
-    "ICNSS2", "MI_CNSS_STATISTIC", "CFG80211",
+    "CNSS2", "ICNSS2", "MI_CNSS_STATISTIC", "CFG80211",
     "WCNSS_MEM_PRE_ALLOC", "CNSS_GENL", "CNSS_UTILS"
 )
 
