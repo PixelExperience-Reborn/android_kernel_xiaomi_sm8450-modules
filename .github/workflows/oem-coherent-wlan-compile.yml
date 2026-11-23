@@ -87,6 +87,9 @@ jobs:
           fi
 
   external-wlan:
+    # Full OEM kernel and external BSP compilation is explicitly opt-in.
+    # Pull requests retain the fast source gate without rebuilding Full LTO.
+    if: github.event_name == 'workflow_dispatch'
     needs: source
     runs-on: ubuntu-24.04
     timeout-minutes: 90

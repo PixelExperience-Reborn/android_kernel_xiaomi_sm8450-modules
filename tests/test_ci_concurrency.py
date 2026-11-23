@@ -1,4 +1,4 @@
-"""Exactly one automatic OEM Full LTO build; standalone WLAN compile is manual."""
+"""PR source gates run automatically; full OEM Full LTO builds are manual."""
 from pathlib import Path
 import unittest
 
@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CIConcurrencyTests(unittest.TestCase):
-    def test_coherent_full_build_runs_on_pr_or_manual_not_duplicate_push(self):
+    def test_coherent_pr_checks_sources_and_full_build_is_manual(self):
         text = (ROOT / ".github/workflows/oem-coherent-wlan-compile.yml").read_text()
         triggers = text.split("jobs:\n", 1)[0]
         self.assertIn("\n  pull_request:", triggers)
@@ -19,6 +19,7 @@ class CIConcurrencyTests(unittest.TestCase):
         self.assertIn("cancel-in-progress: false", text)
         self.assertIn("    needs: source", text)
         self.assertIn("    timeout-minutes: 90", text)
+        self.assertIn("    if: github.event_name == 'workflow_dispatch'", text)
 
     def test_standalone_wlan_is_source_only_automatically(self):
         text = (ROOT / ".github/workflows/oem-wlan-compile.yml").read_text()

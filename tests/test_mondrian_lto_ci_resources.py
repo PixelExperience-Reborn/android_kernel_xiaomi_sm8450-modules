@@ -10,13 +10,14 @@ LINKER_SCRIPT = ROOT / "tools/prepare_mondrian_lto_linker.sh"
 
 
 class FullLtoResourceTests(unittest.TestCase):
-    def test_one_automatic_full_kernel_link(self):
+    def test_full_kernel_link_is_explicit_manual_only(self):
         coherent = COHERENT.read_text()
         standalone = STANDALONE.read_text()
         coherent_triggers = coherent.split("jobs:\n", 1)[0]
         self.assertNotIn("\n  push:", coherent_triggers)
         self.assertIn("\n  pull_request:", coherent_triggers)
         self.assertIn("\n  workflow_dispatch:", coherent_triggers)
+        self.assertIn("    if: github.event_name == 'workflow_dispatch'", coherent)
         self.assertIn("if: github.event_name == 'workflow_dispatch'", standalone)
         self.assertNotIn("if: github.event_name != 'pull_request'", standalone)
         self.assertIn("Build Xiaomi QCACLD QCA6490 as external kernel module", coherent)
