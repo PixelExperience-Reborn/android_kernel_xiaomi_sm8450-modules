@@ -157,7 +157,7 @@
     "external_module": "qca_cld3_qca6490.ko",
     "external_qualcomm_module": "msm-mmrm.ko",
     "direct_modinfo_dependencies": [
-      "cnss2",
+      "icnss2",
       "mi_cnss_statistic",
       "cfg80211",
       "cnss_prealloc",
@@ -165,7 +165,6 @@
       "cnss_utils"
     ],
     "oem_kernel_kbuild_sources": {
-      "cnss2": "drivers/net/wireless/cnss2/Makefile",
       "icnss2": "drivers/soc/qcom/icnss2/Makefile",
       "mi_cnss_statistic": "drivers/net/wireless/mi_cnss_statistic/Makefile",
       "cfg80211": "net/wireless/Makefile",
@@ -174,7 +173,6 @@
       "cnss_utils": "drivers/net/wireless/cnss_utils/Makefile"
     },
     "kconfig_required_module_symbols": [
-      "CNSS2",
       "ICNSS2",
       "MI_CNSS_STATISTIC",
       "CFG80211",
