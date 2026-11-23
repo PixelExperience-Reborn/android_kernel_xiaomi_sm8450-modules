@@ -59,12 +59,18 @@ class ExactKernelCommitTests(unittest.TestCase):
                 abi, "command", side_effect=fake_cmd):
             abi.main()
 
-    def test_legacy_oem_pin_remains_default(self):
-        self.run_gate()
+    def test_historical_oem_sha_is_accepted_only_when_explicit(self):
+        self.run_gate(actual=OEM, expected=OEM)
         report = json.loads(self.report.read_text())
         self.assertEqual(report["kernel_commit"], OEM)
         self.assertEqual(report["depends"], ["msm-mmrm"])
         self.assertFalse(report["hardware_booted"])
+
+    def test_missing_expected_kernel_sha_fails_closed(self):
+        with self.assertRaises(SystemExit) as result:
+            self.run_gate(actual=OEM)
+        self.assertEqual(result.exception.code, 2)
+        self.assertFalse(self.report.exists())
 
     def test_unpinned_different_kernel_is_rejected(self):
         with self.assertRaisesRegex(SystemExit, "2"):
