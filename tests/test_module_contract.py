@@ -4,6 +4,9 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT / "tools"))
+from mondrian_source_pins import load_pins
 
 
 class ModuleContractTests(unittest.TestCase):
@@ -20,7 +23,7 @@ class ModuleContractTests(unittest.TestCase):
         self.assertEqual(d["build_status"], "current_kernel_full_lto_and_external_bsp_abi_pending")
         self.assertEqual(
             d["selected_oem_source_candidates"]["selected_kernel"]["commit_sha"],
-            "2efda4cf1afa2a7098d5abd4806769903e181f73")
+            load_pins()["kernel"])
         self.assertFalse(d["selected_oem_source_candidates"]["abi_verified"])
         self.assertFalse(d["selected_oem_source_candidates"]["external_ko_compiled"])
         self.assertEqual(d["last_verified_build"]["run_id"], 43088150435)

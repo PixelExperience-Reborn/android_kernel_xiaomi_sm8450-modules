@@ -3,7 +3,7 @@
 """Isolated Xiaomi garnet-t-oss display candidate; never selects a product driver.
 
 Run with three local Git checkouts: pinned PE kernel, Xiaomi candidate and
-Google Clang, plus the pinned Xiaomi display DT for builds. With --build, also supply the completed Kernel #31 output,
+Google Clang, plus the pinned Xiaomi display DT for builds. With --build, supply the current completed OEM kernel output,
 its display-abi-evidence.json, and MMRM Module.symvers from the same build.
 Source-only is the default. No full kernel build, flashing, or packaging.
 """
@@ -12,17 +12,23 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from mondrian_source_pins import load_pins
 import re
 import shutil
 import subprocess
 import tarfile
 import tempfile
 
-KERNEL = "2efda4cf1afa2a7098d5abd4806769903e181f73"
+KERNEL = load_pins()["kernel"]
 XIAOMI = "bf0d5e23be5457001a18aa9dcd68cb17994ae36a"
 CLANG = "c9ed23e2ba198658b630d4b10e09fa980cd43119"
 BLOBS = {
     "msm/Kbuild": "7bd79b7c178bb7bcbad9ed1089f3583879181b5a",
+    "msm/sde_dbg.c": "96bd7e918b79fdfb05927d733a59d2db436d7fa8",
+    "msm/sde_io_util.c": "d15b9cdbe0cb8daba52dbb76b1308527ef80279a",
+    "msm/mi_disp/mi_dsi_display.c": "91d3094ccb3fb414ad9274aceb9327f4205abfeb",
     "msm/sde/sde_core_perf.c": "e03896d79a45da58aa9a39dcfaf535e364b52a5a",
     "msm/sde/sde_hw_catalog.c": "bbdf6da9252c5be757ecffb8b5b8da55bd966ab4",
     "msm/sde/sde_rm.c": "dd20d770c0f30f2457c1156b8247ed55273e0b93",
@@ -36,38 +42,6 @@ BLOBS = {
 }
 DISPLAY_DT = "ab5bc7b921d3d4072ce11eecfde984382e3ec695"
 DISPLAY_DT_BLOB = "8c955d4cb960935631a3e6efcf70bf3e3f2c2573"
-SDE_FIXES = {
-    "msm/sde/sde_core_perf.c": (
-        ("\tu32 llcc_id[SDE_SYS_CACHE_MAX] = {LLCC_DISP, LLCC_DISLFT, LLCC_DISRGHT};",
-         "\tu32 llcc_id;"),
-        ("\t/* If LLCC is already in the requested state, skip */",
-         "\t/* WAIPIO/CAPE export only the shared display slice. */\n\tswitch (type) {\n\tcase SDE_SYS_CACHE_DISP:\n\t\tllcc_id = LLCC_DISP;\n\t\tbreak;\n#if defined(LLCC_DISLFT) && defined(LLCC_DISRGHT)\n\tcase SDE_SYS_CACHE_DISP_LEFT:\n\t\tllcc_id = LLCC_DISLFT;\n\t\tbreak;\n\tcase SDE_SYS_CACHE_DISP_RIGHT:\n\t\tllcc_id = LLCC_DISRGHT;\n\t\tbreak;\n#endif\n\tdefault:\n\t\treturn -EOPNOTSUPP;\n\t}\n\n\t/* If LLCC is already in the requested state, skip */"),
-        ("llcc_slice_getd(llcc_id[type])",
-         "llcc_slice_getd(llcc_id)"),
-        ("\t\t\t\tllcc_id[type]);",
-         "\t\t\t\tllcc_id);"),
-    ),
-    "msm/sde/sde_hw_catalog.c": (
-        ("\tif (test_bit(SDE_MDP_LLCC_DISP_LR, &sde_cfg->mdp[0].features)) {\n\t\tslice = llcc_slice_getd(LLCC_DISLFT);",
-         "\tif (test_bit(SDE_MDP_LLCC_DISP_LR, &sde_cfg->mdp[0].features)) {\n#if defined(LLCC_DISLFT) && defined(LLCC_DISRGHT)\n\t\tslice = llcc_slice_getd(LLCC_DISLFT);"),
-        ("\t\t\tsc_cfg[SDE_SYS_CACHE_DISP_RIGHT].llcc_slice_size);\n\t\tllcc_slice_putd(slice);\n\t}",
-         "\t\t\tsc_cfg[SDE_SYS_CACHE_DISP_RIGHT].llcc_slice_size);\n\t\tllcc_slice_putd(slice);\n#else\n\t\tSDE_ERROR(\"separate display LLCC slices unavailable on this kernel\\n\");\n\t\treturn -EOPNOTSUPP;\n#endif\n\t}"),
-    ),
-    "msm/sde/sde_rm.c": (
-        ("\t\tconst struct sde_pingpong_cfg *pp_cfg,\n\t\tstruct sde_rm_hw_blk *lm,",
-         "\t\tstruct sde_rm_hw_blk *lm,"),
-        ("\tstruct sde_rm_hw_iter iter;\n\n\tsde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_PINGPONG);",
-         "\tstruct sde_rm_hw_iter iter;\n\tconst struct sde_pingpong_cfg *pp_cfg;\n\n\tsde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_PINGPONG);"),
-        ("\tconst struct sde_lm_cfg *lm_cfg = to_sde_hw_mixer(lm->hw)->cap;\n\tconst struct sde_pingpong_cfg *pp_cfg;",
-         "\tconst struct sde_lm_cfg *lm_cfg = to_sde_hw_mixer(lm->hw)->cap;"),
-        ("_sde_rm_reserve_pp(rm, rsvp, reqs, lm_cfg, pp_cfg, lm,",
-         "_sde_rm_reserve_pp(rm, rsvp, reqs, lm_cfg, lm,"),
-    ),
-}
-REPLAY_RUN = 45445498683
-REPLAY_CONFIG = "515a9b992035c43e7c78d548287fb00d263dbad3c88e5392ab1bc043105870a3"
-REPLAY_SYMVERS = "2191efa191b246a22c9e8631fd471447e53092d340b47b49698eed7cc65c4c29"
-REPLAY_MMRM = "a6a012aa614a3f5b1eafcbd02c811cba39ca31e2d611c263fea46bca5799ef6e"
 BASE = "techpack/display"
 SDE = "include/uapi/display/drm/sde_drm.h"
 
@@ -103,40 +77,23 @@ def save(path, report):
     path.write_text(json.dumps(report, indent=2) + "\n")
 
 
-def replace_once(text, old, new):
-    require(text.count(old) == 1, "Candidate patch context changed: " + old[:80])
-    return text.replace(old, new, 1)
+PATCH_DIR = Path(__file__).resolve().parents[1] / "patches/xiaomi-display"
+PATCHES = (
+    "0001-mondrian-dcs-and-kbuild.patch",
+    "0002-oem-llcc-and-pingpong.patch",
+    "0003-clang23-prototypes-and-mmrm-init.patch",
+)
 
 
-def adapt_optional_led(text):
-    """Keep actual LED support when reachable; reject absent hardware explicitly."""
-    text = replace_once(text, "#include <misc/isl97900_led.h>",
-                        "#if IS_REACHABLE(CONFIG_ISL97900_LED)\n"
-                        "#include <misc/isl97900_led.h>\n#endif")
-    old = ("\tcase DSI_BACKLIGHT_I2C:\n"
-           "\t\tif (panel->rgb_left_led_node)\n"
-           "\t\t\tisl97900_led_event(panel->rgb_left_led_node,\n"
-           "\t\t\t\t\t0, bl_lvl);\n\n"
-           "\t\tif (panel->rgb_right_led_node)\n"
-           "\t\t\tisl97900_led_event(panel->rgb_right_led_node,\n"
-           "\t\t\t\t\t0, bl_lvl);\n"
-           "\t\tbreak;")
-    new = old.replace("\n\t\tif (panel->rgb_left_led_node)",
-                      "\n#if IS_REACHABLE(CONFIG_ISL97900_LED)\n"
-                      "\t\tif (panel->rgb_left_led_node)", 1)
-    new = new.replace("\n\t\tbreak;",
-                      "\n#else\n\t\treturn -EOPNOTSUPP;\n#endif\n\t\tbreak;")
-    text = replace_once(text, old, new)
-    # Fail registration, not just parsing: the original caller ignores most
-    # parse errors. An unexpected I2C panel must not appear operational.
-    start = text.index("static int dsi_panel_bl_register(struct dsi_panel *panel)")
-    end = text.index("static void dsi_panel_pwm_unregister", start)
-    register = replace_once(text[start:end],
-                            "\tcase DSI_BACKLIGHT_I2C:\n\t\tbreak;",
-                            "\tcase DSI_BACKLIGHT_I2C:\n"
-                            "#if !IS_REACHABLE(CONFIG_ISL97900_LED)\n"
-                            "\t\treturn -EOPNOTSUPP;\n#endif\n\t\tbreak;")
-    return text[:start] + register + text[end:]
+def apply_candidate_patches(display):
+    evidence = {}
+    for name in PATCHES:
+        patch = PATCH_DIR / name
+        nonempty(patch)
+        subprocess.run(["git", "apply", "--check", str(patch)], cwd=display, check=True)
+        subprocess.run(["git", "apply", str(patch)], cwd=display, check=True)
+        evidence[name] = sha256(patch)
+    return evidence
 
 
 def verify_mondrian_dcs(dt):
@@ -162,14 +119,11 @@ def main():
     mode.add_argument("--objects-only", action="store_true",
                       help="Compile candidate dsi_panel.o only, with modules_prepare output")
     p.add_argument("--xiaomi-display-dt", type=Path)
-    p.add_argument("--replay-symbols", action="store_true",
-                   help="Use exact archived #131 symbols with freshly prepared headers; no vmlinux relink")
     p.add_argument("--kernel-out", type=Path)
     p.add_argument("--baseline-evidence", type=Path)
     p.add_argument("--mmrm-symvers", type=Path)
     p.add_argument("--clang-root", type=Path)
     a = p.parse_args()
-    require(not a.replay_symbols or a.build, "--replay-symbols requires --build")
     kernel, vendor, out = (v.resolve() for v in (a.kernel, a.xiaomi_display, a.out))
     for root in (kernel, vendor):
         require(root != out and root not in out.parents,
@@ -205,7 +159,7 @@ def main():
     report = {
         "device": "mondrian", "soc": "SM8475", "android_base": "AOSP 17",
         "kernel_commit": KERNEL, "xiaomi_display_commit": XIAOMI,
-        "baseline_ci_run": 45431700528, "source_blobs": BLOBS,
+        "source_blobs": BLOBS,
         "waipio_profile_equal": True, "m11a_id_present": True,
         "sde_uapi_layout_differs": True,
         "missing_oem_led_header": "include/misc/isl97900_led.h",
@@ -234,17 +188,7 @@ def main():
         evidence, mmrm = (v.resolve() for v in (a.baseline_evidence, a.mmrm_symvers))
         for f in (ko / "Module.symvers", mmrm, evidence):
             nonempty(f)
-        if a.replay_symbols:
-            require(sha256(ko / ".config") == REPLAY_CONFIG
-                    and sha256(ko / "Module.symvers") == REPLAY_SYMVERS
-                    and sha256(mmrm) == REPLAY_MMRM,
-                    "Archived #131 inputs do not match exact verified hashes")
-            require("# CONFIG_DEBUG_INFO_BTF is not set" in (ko / ".config").read_text(),
-                    "BTF requires a real vmlinux; archived symbol replay not supported")
-            report["replayed_symbol_run"] = REPLAY_RUN
-            report["vmlinux_relinked"] = False
-        else:
-            nonempty(ko / "vmlinux")
+        nonempty(ko / "vmlinux")
         baseline = json.loads(evidence.read_text())
         require(baseline.get("kernel_commit") == KERNEL
                 and baseline.get("module_compile") is True
@@ -284,21 +228,7 @@ def main():
         display.mkdir()
         with tarfile.open(archive) as tar:
             tar.extractall(display, filter="data")
-        panel = display / "msm/dsi/dsi_panel.c"
-        panel.write_text(adapt_optional_led(panel.read_text()))
-        kbuild = display / "msm/Kbuild"
-        kbuild.write_text(replace_once(kbuild.read_text(),
-                                       "-Iinclude/linux \\", "-I$(KERNEL_SRC)/include/linux \\")
-                          .replace("-Iinclude/linux/drm\n", "-I$(KERNEL_SRC)/include/linux/drm\n", 1))
-        for relative, edits in SDE_FIXES.items():
-            source = display / relative
-            updated = source.read_text()
-            for old, new in edits:
-                updated = replace_once(updated, old, new)
-            source.write_text(updated)
-        report["adapted_sde_sha256"] = {p: sha256(display / p) for p in SDE_FIXES}
-        report["adapted_panel_sha256"] = sha256(panel)
-        report["adapted_kbuild_sha256"] = sha256(kbuild)
+        report["patches_sha256"] = apply_candidate_patches(display)
         save(out / "source-evidence.json", report)
         cmd = ["make", "-C", str(kernel), f"O={ko}", "-j3", "-k",
                f"M={display / 'msm'}", f"DISPLAY_ROOT={display}",
@@ -326,43 +256,38 @@ def main():
         module = display / "msm/msm_drm.ko"
         nonempty(module)
         validator = Path(__file__).resolve().with_name("verify_external_module_abi.py")
-        if a.replay_symbols:
-            def command(*args):
-                return subprocess.check_output(args, env=env, text=True).strip()
-            version = command("make", "-s", "-C", str(kernel), f"O={ko}", "kernelrelease")
-            require(version == baseline["kernelrelease"], "Kernel release drift")
-            vermagic = command("modinfo", "-F", "vermagic", str(module))
-            require(vermagic == baseline["vermagic"], "Candidate vermagic drift")
-            require("AArch64" in command("readelf", "-h", str(module)), "Wrong ELF architecture")
-            require(command("modinfo", "-F", "name", str(module)) == "msm_drm",
-                    "Wrong module name")
-            require(bool(command("modinfo", "-F", "license", str(module))), "Missing license")
-            versions = {}
-            for table in (ko / "Module.symvers", mmrm):
-                for line in table.read_text().splitlines():
-                    crc, symbol, *_ = line.split()
-                    require(symbol not in versions or versions[symbol] == int(crc, 16),
-                            "Conflicting CRC for " + symbol)
-                    versions[symbol] = int(crc, 16)
-            imports = command("modprobe", "--dump-modversions", str(module)).splitlines()
-            require(bool(imports), "No imported symbol versions")
-            for line in imports:
-                crc, symbol = line.split()
-                require(versions.get(symbol) == int(crc, 16), "CRC mismatch: " + symbol)
-            save(out / "candidate-abi-evidence.json", {
-                "kernel_commit": KERNEL, "replayed_symbol_run": REPLAY_RUN,
-                "kernelrelease": version, "vermagic": vermagic,
-                "imported_crcs_checked": len(imports),
-                "module_sha256": sha256(module), "module_compile": True,
-                "vmlinux_relinked": False, "hardware_validated": False,
-                "userspace_abi_validated": False, "product_driver_selected": False,
-            })
-        else:
-            subprocess.run(["python3", str(validator), "--kernel", str(kernel),
-                            "--kernel-out", str(ko), "--module", str(module),
-                            "--expected-kernel-commit", KERNEL,
-                            "--out", str(out / "candidate-abi-evidence.json")],
-                           env=env, check=True)
+        subprocess.run(["python3", str(validator), "--kernel", str(kernel),
+                        "--kernel-out", str(ko), "--module", str(module),
+                        "--expected-kernel-commit", KERNEL,
+                        "--out", str(out / "candidate-abi-evidence.json")],
+                       env=env, check=True)
+        def command(*args):
+            return subprocess.check_output(args, env=env, text=True).strip()
+        version = command("make", "-s", "-C", str(kernel), f"O={ko}", "kernelrelease")
+        require(version == baseline["kernelrelease"], "Kernel release drift")
+        vermagic = command("modinfo", "-F", "vermagic", str(module))
+        require(vermagic == baseline["vermagic"], "Candidate vermagic drift")
+        require("AArch64" in command("readelf", "-h", str(module)), "Wrong ELF architecture")
+        require(command("modinfo", "-F", "name", str(module)) == "msm_drm",
+                "Wrong module name")
+        require(bool(command("modinfo", "-F", "license", str(module))), "Missing license")
+        versions = {}
+        for table in (ko / "Module.symvers", mmrm):
+            for line in table.read_text().splitlines():
+                crc, symbol, *_ = line.split()
+                require(symbol not in versions or versions[symbol] == int(crc, 16),
+                        "Conflicting CRC for " + symbol)
+                versions[symbol] = int(crc, 16)
+        imports = command("modprobe", "--dump-modversions", str(module)).splitlines()
+        require(bool(imports), "No imported symbol versions")
+        for line in imports:
+            crc, symbol = line.split()
+            require(versions.get(symbol) == int(crc, 16), "CRC mismatch: " + symbol)
+        abi_path = out / "candidate-abi-evidence.json"
+        abi = json.loads(abi_path.read_text())
+        abi.update(imported_crcs_checked=len(imports), hardware_validated=False,
+                   userspace_abi_validated=False, product_driver_selected=False)
+        save(abi_path, abi)
         report["candidate_module_compiled"] = True
         report["candidate_module_sha256"] = sha256(module)
         shutil.copy2(module, out / "candidate-msm_drm.ko")

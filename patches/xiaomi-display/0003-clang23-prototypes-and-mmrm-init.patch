@@ -1,0 +1,45 @@
+diff --git a/msm/sde_dbg.c b/msm/sde_dbg.c
+--- a/msm/sde_dbg.c
++++ b/msm/sde_dbg.c
+@@ -634,7 +634,7 @@
+ 	.priority = INT_MAX,
+ };
+ 
+-static int sde_register_md_panic_notifer()
++static int sde_register_md_panic_notifer(void)
+ {
+ 	qcom_va_md_register("display", &sde_md_notify_blk);
+ 	return 0;
+@@ -657,7 +657,7 @@
+ 	return;
+ }
+ #else
+-static int sde_register_md_panic_notifer()
++static int sde_register_md_panic_notifer(void)
+ {
+ 	return 0;
+ }
+diff --git a/msm/sde_io_util.c b/msm/sde_io_util.c
+--- a/msm/sde_io_util.c
++++ b/msm/sde_io_util.c
+@@ -579,7 +579,7 @@
+ 	*mmrm_enable = false;
+ 
+ 	for (i = 0; i < num_clk; i++) {
+-		struct mmrm_client_desc desc;
++		struct mmrm_client_desc desc = {0};
+ 		char *name = (char *)desc.client_info.desc.name;
+ 		struct dss_clk_mmrm_cb *mmrm_cb_data;
+ 
+diff --git a/msm/mi_disp/mi_dsi_display.c b/msm/mi_disp/mi_dsi_display.c
+--- a/msm/mi_disp/mi_dsi_display.c
++++ b/msm/mi_disp/mi_dsi_display.c
+@@ -1209,7 +1209,7 @@
+ }
+ 
+ 
+-bool mi_dsi_display_ramdump_support()
++bool mi_dsi_display_ramdump_support(void)
+ {
+ 	/* when debug policy is 0x0 or 0x20, full dump not supported */
+ 	if (strcmp(display_debug_policy, "0x0") != 0 && strcmp(display_debug_policy, "0x20") != 0)

@@ -5,6 +5,9 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT / "tools"))
+from mondrian_source_pins import load_pins
 spec = importlib.util.spec_from_file_location(
     "camera_gitlink", ROOT / "tools/verify_xiaomi_camera_submodule.py")
 camera = importlib.util.module_from_spec(spec)
@@ -35,10 +38,8 @@ class XiaomiCameraGitlinkTests(unittest.TestCase):
         # This audit is explicitly source-only, not a driver readiness claim.
         self.assertEqual(manifest["status"], "SOURCE_ONLY_CANDIDATE_NOT_BUILT")
         self.assertFalse(manifest["qualification"]["production_integration_approved"])
-        expected = ('assert p["kernel"] == {"repository":"'
-                    + kernel["repository"] + '","commit":"'
-                    + kernel["commit"] + '","version":"5.10.81"}')
-        self.assertIn(expected, workflow)
+        self.assertEqual(kernel["commit"], load_pins()["kernel"])
+        self.assertIn('"commit":load_pins()["kernel"]', workflow)
         # Historical OEM Camera Gitlink must not change to satisfy an ABI pin.
         self.assertEqual(manifest["manufacturer_candidate"]["commit"], camera.COMMIT)
 

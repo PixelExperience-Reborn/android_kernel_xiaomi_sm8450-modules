@@ -3,7 +3,10 @@ import pathlib
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-KERNEL_SHA = "2efda4cf1afa2a7098d5abd4806769903e181f73"
+import sys
+sys.path.insert(0, str(ROOT / "tools"))
+from mondrian_source_pins import load_pins
+KERNEL_SHA = load_pins()["kernel"]
 MAKE_ARGS = (
     "CONFIG_CNSS_QCA6490=y", "CONFIG_ROME_IF=pci",
     "WLAN_CTRL_NAME=wlan", "TARGET_BUILD_VARIANT=user",
@@ -46,13 +49,14 @@ class Qca6490PcieProfileTests(unittest.TestCase):
         stage = (ROOT / "tools/stage_mondrian_wlan_kmi.py").read_text()
         specialized = (ROOT / "tools/verify_external_wlan_abi.py").read_text()
         for workflow in (standalone, coherent):
-            self.assertIn("ref: " + KERNEL_SHA, workflow)
+            self.assertIn("ref: ${{ steps.pins.outputs.kernel }}", workflow)
+            self.assertIn("run: python3 tools/mondrian_source_pins.py github", workflow)
             self.assertNotIn("ref: 2466406b9beac724960b0c88e6e794421d0466e7", workflow)
-        self.assertIn('test "$(git -C kernel rev-parse HEAD)" = ' + KERNEL_SHA, standalone)
+        self.assertIn('test "$(git -C kernel rev-parse HEAD)" = "$PE_KERNEL_SHA"', standalone)
         # OEM MMRM, WLAN and depmod staging must fail on a different kernel.
-        self.assertEqual(standalone.count("--expected-kernel-commit " + KERNEL_SHA), 3)
-        self.assertIn('KERNEL_SHA = "' + KERNEL_SHA + '"', stage)
-        self.assertEqual(specialized.count('"' + KERNEL_SHA + '"'), 2)
+        self.assertEqual(standalone.count('--expected-kernel-commit "$PE_KERNEL_SHA"'), 3)
+        self.assertIn('KERNEL_SHA = load_pins()["kernel"]', stage)
+        self.assertEqual(specialized.count('load_pins()["kernel"]'), 2)
 
 if __name__ == "__main__":
     unittest.main()

@@ -17,24 +17,27 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
+      - name: Resolve and validate canonical source pins
+        id: pins
+        run: python3 tools/mondrian_source_pins.py github
       - uses: actions/checkout@v4
         with:
           repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450
-          ref: 2efda4cf1afa2a7098d5abd4806769903e181f73
+          ref: ${{ steps.pins.outputs.kernel }}
           path: kernel
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees
-          ref: 2550600f85a1981484d28c92da4b690eac23f62f
+          ref: ${{ steps.pins.outputs.devicetrees }}
           path: device-tree
           persist-credentials: false
       - name: Reject unqualified source or kernel revision
         run: |
           set -euo pipefail
           python3 tools/verify_xiaomi_camera_submodule.py
-          test "$(git -C kernel rev-parse HEAD)" = 2efda4cf1afa2a7098d5abd4806769903e181f73
-          test "$(git -C device-tree rev-parse HEAD)" = 2550600f85a1981484d28c92da4b690eac23f62f
+          test "$(git -C kernel rev-parse HEAD)" = "$PE_KERNEL_SHA"
+          test "$(git -C device-tree rev-parse HEAD)" = "$PE_DT_SHA"
           test "$(git -C xiaomi-camera-source rev-parse HEAD)" = 9ed4ce96d49c0759c6365627113c5f59c2407942
           test "$(git -C upstream/qualcomm/mmrm rev-parse HEAD)" = "$(git ls-tree HEAD upstream/qualcomm/mmrm | awk '{print $3}')"
           test "$(git -C xiaomi-camera-source rev-parse 'HEAD^{tree}')" = e8fadfd2127cb9e12696273e1661ead9f9a70c89
@@ -43,7 +46,7 @@ jobs:
           import json
           d = json.load(open("camera-bsp-candidate.json"))
           assert d["device"] == "mondrian" and d["soc"] == "SM8475"
-          assert d["kernel"]["commit"] == "2efda4cf1afa2a7098d5abd4806769903e181f73"
+          assert d["kernel"]["commit"] == __import__("os").environ["PE_KERNEL_SHA"]
           assert d["manufacturer_candidate"]["commit"] == "9ed4ce96d49c0759c6365627113c5f59c2407942"
           assert d["status"] == "SOURCE_ONLY_CANDIDATE_NOT_BUILT"
           assert not any(d["qualification"].values())
@@ -113,7 +116,7 @@ jobs:
           python3 tools/verify_external_module_abi.py \
             --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
             --module "$mmrm/driver/msm-mmrm.ko" \
-            --expected-kernel-commit 2efda4cf1afa2a7098d5abd4806769903e181f73 \
+            --expected-kernel-commit "$PE_KERNEL_SHA" \
             --out camera-mmrm-abi-evidence.json
       - name: Test OEM-only Clang23 correction without editing Xiaomi upstream
         run: |
@@ -195,7 +198,7 @@ jobs:
             --module xiaomi-camera-source/camera.ko \
             --kernel kernel \
             --kernel-out "$RUNNER_TEMP/mondrian-out" \
-            --expected-kernel-commit 2efda4cf1afa2a7098d5abd4806769903e181f73 \
+            --expected-kernel-commit "$PE_KERNEL_SHA" \
             --out camera-mondrian-elf-evidence.json
           echo "[PASS] OEM PMIC parser/apply/flush, generic I2C and no donor sysfs GPIO356" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] Sensor power and PM8350C flash operation on physical mondrian" >> "$GITHUB_STEP_SUMMARY"
@@ -208,7 +211,7 @@ jobs:
             python3 tools/verify_external_module_abi.py \
               --kernel kernel --kernel-out "$RUNNER_TEMP/mondrian-out" \
               --module "xiaomi-camera-source/$module.ko" \
-              --expected-kernel-commit 2efda4cf1afa2a7098d5abd4806769903e181f73 \
+              --expected-kernel-commit "$PE_KERNEL_SHA" \
               --out "camera-$module-abi-evidence.json"
           done
           echo "[PASS] Xiaomi Camera modules compile and pass static OEM ABI checks" >> "$GITHUB_STEP_SUMMARY"

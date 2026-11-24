@@ -17,7 +17,7 @@ class FullLtoResourceTests(unittest.TestCase):
         self.assertIn("\n  push:\n", coherent_triggers)
         self.assertIn("      - bringup/a17-mondrian-oem-bsp-20261111", coherent_triggers)
         self.assertIn("contains(github.event.head_commit.message, '[serverhive-qualification]')", coherent)
-        self.assertIn("\n  pull_request:", coherent_triggers)
+        self.assertNotIn("\n  pull_request:", coherent_triggers)
         self.assertIn("\n  workflow_dispatch:", coherent_triggers)
         self.assertIn("    if: github.event_name == 'workflow_dispatch'", coherent)
         self.assertIn("if: github.event_name == 'workflow_dispatch'", standalone)

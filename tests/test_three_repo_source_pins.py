@@ -5,8 +5,11 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-KERNEL = "2efda4cf1afa2a7098d5abd4806769903e181f73"
-DEVICE_TREES = "2550600f85a1981484d28c92da4b690eac23f62f"
+import sys
+sys.path.insert(0, str(ROOT / "tools"))
+from mondrian_source_pins import load_pins
+KERNEL = load_pins()["kernel"]
+DEVICE_TREES = load_pins()["devicetrees"]
 
 
 class ThreeRepositorySourceGateTests(unittest.TestCase):
@@ -20,13 +23,14 @@ class ThreeRepositorySourceGateTests(unittest.TestCase):
     def test_all_camera_and_audio_builds_pin_same_original_device_tree(self):
         self.assertEqual(self.policy["xiaomi_device_tree"]["commit"], DEVICE_TREES)
         self.assertEqual(self.policy["selected_kernel_commit"], KERNEL)
-        self.assertIn('DTS_SHA = "' + DEVICE_TREES + '"', self.selector)
+        self.assertIn('DTS_SHA = load_pins()["devicetrees"]', self.selector)
         self.assertIn('assert camera["mondrian_m11a_csiphy2_and_4_bound"] is True',
                       self.coherent)
         self.assertIn('camera_m11a_csiphy2_and_4_compiled', self.coherent)
         for workflow in (self.coherent, self.standalone):
             self.assertIn("repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees\n"
-                          "          ref: " + DEVICE_TREES, workflow)
+                          "          ref: ${{ steps.pins.outputs.devicetrees }}", workflow)
+            self.assertIn("run: python3 tools/mondrian_source_pins.py github", workflow)
 
     def test_full_oem_build_actually_checks_all_three_repositories(self):
         self.assertIn("submodules: recursive", self.coherent)

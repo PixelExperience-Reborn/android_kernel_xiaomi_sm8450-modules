@@ -13,20 +13,20 @@ memory exhaustion. Do not claim an OOM without kernel/runner evidence.
 
 ## Current automatic path
 
-- `oem-coherent-wlan-compile.yml` runs on the active bringup PR or when
-  manually dispatched. Its `source` job gates the comprehensive pinned
-  Xiaomi/Qualcomm sources; its only full `external-wlan` job compiles the
-  OEM Image, vmlinux, in-tree modules, then Qualcomm MMRM, QCA6490 PCIe
-  QCACLD, Display, Xiaomi Camera, Ziyi WAIPIO/AW882xx Audio and VIDC.
-  The same exact OEM `.config`, vmlinux and Module.symvers underpin all
-  external modules; each ABI and dependency-closure gate remains required.
-- `oem-wlan-compile.yml` keeps cheap push/PR source-only checks. Its
-  independent full WLAN build is retained as **manual-only**
-  `workflow_dispatch`, so it can be used for targeted investigations
-  without duplicating every regular PR full build. Do not manually start it
-  while the coherent full job is linking the kernel.
-- `module-contract.yml` remains source-only. No diagnostic CI result
-  is a shipping kernel or Android product image.
+- module-contract.yml owns regular source validation (including recursive
+  submodules). Same-repository pull requests use the existing push check;
+  fork pull requests run the source gate on GitHub-hosted runners.
+- Standalone WLAN is manual-only. CodeLinaro source discovery is path-filtered.
+- The coherent workflow supports manual scope=display or scope=full-bsp.
+  Its tightly restricted, explicit trusted bringup push mechanism remains
+  available because workflow_dispatch may be unavailable before workflows
+  exist on the default branch. A normal push never requests ServerHive.
+- Display mode validates the reviewable Xiaomi patch series before allocating
+  ServerHive and compiles the candidate with the same freshly built vmlinux,
+  Module.symvers and official MMRM as the Qualcomm baseline in that job.
+  No cross-host configuration replay or temporary artifact dependency remains.
+- Candidate output is diagnostic only. It does not replace the Qualcomm
+  production driver or establish userspace ABI, Goodix, LHBM or hardware readiness.
 
 ## Full LTO memory guard
 
@@ -74,7 +74,7 @@ SCS or HW-tag KASAN just to report SUCCESS.
 
 ## Kernel SHA and ABI provenance
 
-The current active OEM kernel is `c67ed74ffe11bd2133b560078a20cf0c04e18d97` in both workflow checkouts,
+The current active OEM kernel is `2efda4cf1afa2a7098d5abd4806769903e181f73` in both workflow checkouts,
 the WLAN dependency closure and the modules candidate manifest.
 The generic external-module ABI verifier requires an explicit expected
 kernel SHA rather than defaulting to obsolete `2466406b9beac724960b0c88e6e794421d0466e7`.

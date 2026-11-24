@@ -4,6 +4,9 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from mondrian_source_pins import load_pins
 import subprocess
 
 def command(args):
@@ -20,7 +23,7 @@ def main():
     output = args.kernel_out.resolve()
     module = args.module.resolve()
     if command(["git", "-C", str(kernel), "rev-parse", "HEAD"]) != (
-        "2efda4cf1afa2a7098d5abd4806769903e181f73"
+        load_pins()["kernel"]
     ):
         p.error("kernel commit drift")
     for file in (output / "vmlinux", output / "Module.symvers",
@@ -43,7 +46,7 @@ def main():
         return hashlib.sha256(path.read_bytes()).hexdigest()
     evidence = {
         "device": "mondrian",
-        "kernel_commit": "2efda4cf1afa2a7098d5abd4806769903e181f73",
+        "kernel_commit": load_pins()["kernel"],
         "kernelrelease": version,
         "module": module.name,
         "vermagic": vermagic,

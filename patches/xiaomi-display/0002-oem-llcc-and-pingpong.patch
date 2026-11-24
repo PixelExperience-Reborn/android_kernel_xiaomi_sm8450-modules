@@ -1,0 +1,132 @@
+diff --git a/msm/sde/sde_core_perf.c b/msm/sde/sde_core_perf.c
+--- a/msm/sde/sde_core_perf.c
++++ b/msm/sde/sde_core_perf.c
+@@ -359,7 +359,7 @@
+ 	struct drm_device *drm_dev;
+ 	struct device *dev;
+ 	struct platform_device *pdev;
+-	u32 llcc_id[SDE_SYS_CACHE_MAX] = {LLCC_DISP, LLCC_DISLFT, LLCC_DISRGHT};
++	u32 llcc_id;
+ 	int rc = 0;
+ 
+ 	if (!kms || !kms->dev || !kms->dev->dev) {
+@@ -372,7 +372,24 @@
+ 	dev = drm_dev->dev;
+ 	pdev = to_platform_device(dev);
+ 
+-	/* If LLCC is already in the requested state, skip */
++	/* WAIPIO/CAPE export only the shared display slice. */
++	switch (type) {
++	case SDE_SYS_CACHE_DISP:
++		llcc_id = LLCC_DISP;
++		break;
++#if defined(LLCC_DISLFT) && defined(LLCC_DISRGHT)
++	case SDE_SYS_CACHE_DISP_LEFT:
++		llcc_id = LLCC_DISLFT;
++		break;
++	case SDE_SYS_CACHE_DISP_RIGHT:
++		llcc_id = LLCC_DISRGHT;
++		break;
++#endif
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	/* If LLCC is already in the requested state, skip */
+ 	SDE_EVT32(activate, type, kms->perf.llcc_active[type]);
+ 	if ((activate && kms->perf.llcc_active[type]) ||
+ 		(!activate && !kms->perf.llcc_active[type])) {
+@@ -385,10 +402,10 @@
+ 		activate ? "" : "de",
+ 		type, kms->perf.llcc_active[type]);
+ 
+-	slice = llcc_slice_getd(llcc_id[type]);
+-	if (IS_ERR_OR_NULL(slice))  {
+-		SDE_ERROR("failed to get llcc slice for uid:%d\n",
+-				llcc_id[type]);
++	slice = llcc_slice_getd(llcc_id);
++	if (IS_ERR_OR_NULL(slice))  {
++		SDE_ERROR("failed to get llcc slice for uid:%d\n",
++				llcc_id);
+ 		rc = -EINVAL;
+ 		goto exit;
+ 	}
+diff --git a/msm/sde/sde_hw_catalog.c b/msm/sde/sde_hw_catalog.c
+--- a/msm/sde/sde_hw_catalog.c
++++ b/msm/sde/sde_hw_catalog.c
+@@ -3546,8 +3546,9 @@
+ 		sc_cfg[SDE_SYS_CACHE_DISP].llcc_slice_size);
+ 	llcc_slice_putd(slice);
+ 
+-	if (test_bit(SDE_MDP_LLCC_DISP_LR, &sde_cfg->mdp[0].features)) {
+-		slice = llcc_slice_getd(LLCC_DISLFT);
++	if (test_bit(SDE_MDP_LLCC_DISP_LR, &sde_cfg->mdp[0].features)) {
++#if defined(LLCC_DISLFT) && defined(LLCC_DISRGHT)
++		slice = llcc_slice_getd(LLCC_DISLFT);
+ 		if (IS_ERR_OR_NULL(slice)) {
+ 			SDE_ERROR("failed to get disp left system cache %ld\n",
+ 				PTR_ERR(slice));
+@@ -3574,9 +3575,13 @@
+ 		sc_cfg[SDE_SYS_CACHE_DISP_RIGHT].llcc_slice_size = llcc_get_slice_size(slice);
+ 		SDE_DEBUG("disp right cache scid:%d slice_size:%zu kb\n",
+ 			sc_cfg[SDE_SYS_CACHE_DISP_RIGHT].llcc_scid,
+-			sc_cfg[SDE_SYS_CACHE_DISP_RIGHT].llcc_slice_size);
+-		llcc_slice_putd(slice);
+-	}
++			sc_cfg[SDE_SYS_CACHE_DISP_RIGHT].llcc_slice_size);
++		llcc_slice_putd(slice);
++#else
++		SDE_ERROR("separate display LLCC slices unavailable on this kernel\n");
++		return -EOPNOTSUPP;
++#endif
++	}
+ 
+ 	return 0;
+ }
+diff --git a/msm/sde/sde_rm.c b/msm/sde/sde_rm.c
+--- a/msm/sde/sde_rm.c
++++ b/msm/sde/sde_rm.c
+@@ -1043,15 +1043,15 @@
+ 		struct sde_rm_rsvp *rsvp,
+ 		struct sde_rm_requirements *reqs,
+ 		const struct sde_lm_cfg *lm_cfg,
+-		const struct sde_pingpong_cfg *pp_cfg,
+-		struct sde_rm_hw_blk *lm,
+-		struct sde_rm_hw_blk **dspp,
+-		struct sde_rm_hw_blk **ds,
+-		struct sde_rm_hw_blk **pp)
+-{
+-	struct sde_rm_hw_iter iter;
+-
+-	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_PINGPONG);
++		struct sde_rm_hw_blk *lm,
++		struct sde_rm_hw_blk **dspp,
++		struct sde_rm_hw_blk **ds,
++		struct sde_rm_hw_blk **pp)
++{
++	struct sde_rm_hw_iter iter;
++	const struct sde_pingpong_cfg *pp_cfg;
++
++	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_PINGPONG);
+ 	while (_sde_rm_get_hw_locked(rm, &iter)) {
+ 		if (iter.blk->id == lm_cfg->pingpong) {
+ 			*pp = iter.blk;
+@@ -1111,8 +1111,7 @@
+ 		struct sde_rm_hw_blk *primary_lm,
+ 		u32 conn_lm_mask)
+ {
+-	const struct sde_lm_cfg *lm_cfg = to_sde_hw_mixer(lm->hw)->cap;
+-	const struct sde_pingpong_cfg *pp_cfg;
++	const struct sde_lm_cfg *lm_cfg = to_sde_hw_mixer(lm->hw)->cap;
+ 	bool ret, is_conn_primary, is_conn_secondary;
+ 	u32 lm_primary_pref, lm_secondary_pref, cwb_pref, dcwb_pref;
+ 
+@@ -1201,7 +1200,7 @@
+ 		return ret;
+ 
+ 	/* Reserve pp */
+-	ret = _sde_rm_reserve_pp(rm, rsvp, reqs, lm_cfg, pp_cfg, lm,
++	ret = _sde_rm_reserve_pp(rm, rsvp, reqs, lm_cfg, lm,
+ 			dspp, ds, pp);
+ 	if (!ret)
+ 		return ret;

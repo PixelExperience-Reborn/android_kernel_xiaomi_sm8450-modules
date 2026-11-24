@@ -10,11 +10,13 @@ import hashlib
 import json
 import re
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from mondrian_source_pins import load_pins
 import shutil
 import subprocess
-import sys
 
-KERNEL_SHA = "2efda4cf1afa2a7098d5abd4806769903e181f73"
+KERNEL_SHA = load_pins()["kernel"]
 ROOT_WLAN_DEPS = frozenset(
     ("cnss2", "mi_cnss_statistic", "cfg80211",
      "cnss_prealloc", "cnss_nl", "cnss_utils")
