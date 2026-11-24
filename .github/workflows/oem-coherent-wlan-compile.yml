@@ -256,6 +256,7 @@ jobs:
           fi
           test -s "$RUNNER_TEMP/mondrian-out/Module.symvers"
       - name: Verify OEM mondrian Camera power LDO driver and compiled module
+        if: ${{ !contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
         run: |
           set -euo pipefail
           cfg="$RUNNER_TEMP/mondrian-out/.config"
@@ -272,6 +273,7 @@ jobs:
           echo "[PASS] OEM mondrian WL2866D module and matching I2C binding compiled" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] Camera regulator power sequencing and physical hardware" >> "$GITHUB_STEP_SUMMARY"
       - name: Audit all original OEM and critical mondrian kernel modules
+        if: ${{ !contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
         run: |
           set -euo pipefail
           export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
@@ -281,6 +283,7 @@ jobs:
             --expected-kernel-commit 2efda4cf1afa2a7098d5abd4806769903e181f73 \
             --out "$RUNNER_TEMP/mondrian-inventory.json"
       - name: Apply reviewed Xiaomi WLAN header correction
+        if: ${{ !contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
         run: |
           set -euo pipefail
           python3 tools/apply_oem_wlan_fix.py
@@ -310,6 +313,7 @@ jobs:
           echo "[PASS] Qualcomm official MMRM compiled against OEM kernel symbols" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] Qualcomm display/camera/audio users and hardware validation" >> "$GITHUB_STEP_SUMMARY"
       - name: Build Xiaomi QCACLD QCA6490 as external kernel module
+        if: ${{ !contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
         run: |
           set -euo pipefail
           export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
@@ -364,7 +368,41 @@ jobs:
             --expected-kernel-commit 2efda4cf1afa2a7098d5abd4806769903e181f73 \
             --out "$RUNNER_TEMP/display-abi-evidence.json"
           echo "[PASS] msm_drm.ko compiled with the same Module.symvers as WLAN/MMRM" >> "$GITHUB_STEP_SUMMARY"
+      - name: Checkout exact Xiaomi garnet Display candidate
+        if: ${{ contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
+        uses: actions/checkout@v4
+        with:
+          repository: MiCode/vendor_opensource_display-drivers
+          ref: bf0d5e23be5457001a18aa9dcd68cb17994ae36a
+          path: xiaomi-display
+          persist-credentials: false
+      - name: Checkout exact manufacturer mondrian display DT
+        if: ${{ contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
+        uses: actions/checkout@v4
+        with:
+          repository: MiCode/vendor_qcom_proprietary_display-devicetree
+          ref: ab5bc7b921d3d4072ce11eecfde984382e3ec695
+          path: xiaomi-display-dt
+          persist-credentials: false
+      - name: Compile full Xiaomi Display with real OEM and MMRM symbols
+        if: ${{ contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/mmrm-abi-evidence.json"
+          test -s "$RUNNER_TEMP/display-abi-evidence.json"
+          test "$(git -C upstream/qualcomm/mmrm rev-parse HEAD)" = "$(git ls-tree HEAD upstream/qualcomm/mmrm | awk '{print $3}')"
+          python3 tools/qualify_xiaomi_garnet_display.py \
+            --kernel kernel --xiaomi-display xiaomi-display \
+            --xiaomi-display-dt xiaomi-display-dt --clang-root /tmp/google-clang \
+            --kernel-out "$RUNNER_TEMP/mondrian-out" \
+            --baseline-evidence "$RUNNER_TEMP/display-abi-evidence.json" \
+            --mmrm-symvers "$GITHUB_WORKSPACE/upstream/qualcomm/mmrm/driver/Module.symvers" \
+            --out "$RUNNER_TEMP/garnet-full" --build
+          test -s "$RUNNER_TEMP/garnet-full/candidate-msm_drm.ko"
+          modinfo -F name "$RUNNER_TEMP/garnet-full/candidate-msm_drm.ko" | grep -Fx msm_drm
+          echo '[PASS] Xiaomi candidate msm_drm.ko built with actual OEM vmlinux, Module.symvers and MMRM; userspace ABI and hardware pending.' >> "$GITHUB_STEP_SUMMARY"
       - name: Compile original Xiaomi camera/cameralog with PM8350C and SAME OEM MMRM symbols
+        if: ${{ !contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
         run: |
           set -euo pipefail
           python3 tools/verify_xiaomi_camera_submodule.py
@@ -417,8 +455,10 @@ jobs:
           echo "[PASS] Xiaomi Camera modules compiled with OEM Image, MMRM and Qualcomm PMIC" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] mondrian hardware sensors/LED channel/Android Camera HAL" >> "$GITHUB_STEP_SUMMARY"
       - name: Build Xiaomi Qualcomm Audio, AW882xx and Qualcomm VIDC against exact OEM kernel
+        if: ${{ !contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
         run: bash tools/build_mondrian_audio_video.sh
       - name: Verify WLAN/MMRM/Display/Camera/Audio/Video and critical OEM module dependency closures
+        if: ${{ !contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
         run: |
           set -euo pipefail
           # Import the same 15-module source contract as the compiled inventory
@@ -473,6 +513,7 @@ jobs:
           cat "$RUNNER_TEMP/mondrian-stage/mondrian-wlan-diagnostic-manifest.json" \
             >> "$GITHUB_STEP_SUMMARY"
       - name: Verify real Xiaomi Camera to OEM WL2866D ELF and module-load ABI
+        if: ${{ !contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
         run: |
           set -euo pipefail
           python3 tools/verify_mondrian_camera_wl2866d_abi.py \
@@ -484,6 +525,7 @@ jobs:
           echo "[PASS] Camera OEM WL2866D power ABI, module dependency and load order" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] Camera rail sequencing and device hardware test" >> "$GITHUB_STEP_SUMMARY"
       - name: Integrate exact OEM Kernel, Camera, Audio and native mondrian Devicetrees
+        if: ${{ !contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
         run: |
           set -euo pipefail
           test "$(git -C kernel rev-parse HEAD)" = 2efda4cf1afa2a7098d5abd4806769903e181f73
@@ -586,6 +628,7 @@ jobs:
           echo "[PASS] Three-repository OEM Image/Modules/Camera/Audio-DTB diagnostic build" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] Production boot/DTBO/modules.load and physical Camera/Audio/LHBM/UDFPS" >> "$GITHUB_STEP_SUMMARY"
       - name: Qualify exact mondrian camera EEPROM power and OIS non-enablement
+        if: ${{ !contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
         run: |
           set -euo pipefail
           python3 tools/verify_mondrian_camera_ois_power.py \
@@ -596,6 +639,7 @@ jobs:
           echo "[PASS] OEM Camera EEPROM power records, actuator and OIS absence in all three compiled DTBs" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] AK7323 standalone OIS transport/commands and physical power-on tests" >> "$GITHUB_STEP_SUMMARY"
       - name: Check reusable diagnostic Image, modules and matching SHA256 manifest
+        if: ${{ !contains(github.event.head_commit.message || '', '[xiaomi-display-only]') }}
         run: |
           set -euo pipefail
           image="$RUNNER_TEMP/mondrian-out/arch/arm64/boot/Image"
@@ -650,6 +694,8 @@ jobs:
             ${{ runner.temp }}/mmrm-abi-evidence.json
             ${{ runner.temp }}/wlan-abi-evidence.json
             ${{ runner.temp }}/display-abi-evidence.json
+            ${{ runner.temp }}/garnet-full/
+            upstream/qualcomm/mmrm/driver/Module.symvers
             ${{ runner.temp }}/mondrian-inventory.json
             ${{ runner.temp }}/mondrian-three-repo-diagnostic-evidence.json
             ${{ runner.temp }}/mondrian-coherent-board/dtbo-diagnostic-evidence.json
