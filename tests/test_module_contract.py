@@ -1,0 +1,70 @@
+import json
+import re
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class ModuleContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.cfg = json.loads((ROOT / "modules-bsp-candidates.json").read_text())
+
+    def test_scope_and_source_pins(self):
+        d = self.cfg
+        self.assertEqual(d["schema_version"], 1)
+        self.assertEqual(d["device"], "mondrian")
+        self.assertEqual(d["soc"], "SM8475")
+        self.assertEqual(d["android_base"], "AOSP 17")
+        self.assertEqual(d["build_status"], "not_buildable")
+        s = d["reference_module_source"]
+        self.assertEqual(s["status"], "read_only_not_selected")
+        self.assertNotEqual(s["commit_sha"], s["tree_sha"])
+        for key in ("commit_sha", "tree_sha"):
+            self.assertRegex(s[key], r"^[0-9a-f]{40}$")
+
+    def test_oem_ordered_list_is_unqualified(self):
+        oem = self.cfg["reference_oem_list"]
+        self.assertEqual(oem["ordered_entries"], 106)
+        self.assertEqual(oem["unique_entries"], 104)
+        self.assertEqual(set(oem["duplicates"]), {"gh_virt_wdt.ko", "qcom_wdt_core.ko"})
+        self.assertRegex(oem["blob_sha"], r"^[0-9a-f]{40}$")
+
+    def test_trial_source_matches_pinned_kernel_and_preserves_unverified_kmi(self):
+        t = self.cfg["trial_lf_source"]
+        self.assertEqual(t["repository"], "LF52406/android_kernel_xiaomi_sm8450-modules")
+        self.assertEqual(t["commit_sha"], "91cdb1347970ae98291986926eb16bf1b172138e")
+        self.assertEqual(t["root_tree_sha"], "3a09118a08342f6b0118373f340d759ddfadb133")
+        self.assertEqual(t["expected_kernel_commit"], "283772ceb84491fd446e340fd211d45fb9dd9a36")
+        self.assertEqual(t["audio_kbuild_blob_sha"], "81667bef6787a567063a8b21b78379f794f9bc29")
+        self.assertEqual(t["required_product_define"], "CONFIG_TARGET_PRODUCT_MONDRIAN")
+        self.assertEqual(t["status"], "trial_source_only_not_copied_or_compiled")
+        for flag in ("abi_module_symvers_verified", "vendor_boot_modules_load_verified",
+                     "vendor_dlkm_modules_load_verified"):
+            self.assertFalse(t[flag])
+
+    def test_modern_qualcomm_module_toolchain_must_match_our_kernel(self):
+        c = self.cfg["trial_lf_source"]["diagnostic_android_kernel_compiler"]
+        self.assertEqual(c["revision"], "clang-r614150")
+        self.assertEqual(c["llvm_major"], 23)
+        self.assertEqual(c["upstream_commit_sha"],
+                         "c9ed23e2ba198658b630d4b10e09fa980cd43119")
+        self.assertTrue(c["must_match_kernel_image_compiler"])
+        self.assertFalse(c["allow_compiler_warning_suppression"])
+        self.assertFalse(c["compiled_module_symvers_qualified"])
+        self.assertFalse(c["kmi_qualified"])
+        self.assertFalse(c["vendor_dlkm_packaged"])
+
+    def test_no_unsafe_kernel_or_partition_assumptions(self):
+        q = self.cfg["required_qualification"]
+        for key in ("kernel_source_commit", "kernel_config_hash", "toolchain_revision", "kmi_symbol_list_hash", "module_symvers_hash", "compiled_modules_hash"):
+            self.assertIsNone(q[key])
+        for key in ("dependency_order_qualified", "vendor_boot_modules_qualified", "vendor_dlkm_modules_qualified", "firmware_qualified", "boot_proven"):
+            self.assertIs(q[key], False)
+        self.assertIn("FM radio", self.cfg["exclusions"])
+        self.assertIn("ROM-specific LineageOS product dependencies", self.cfg["exclusions"])
+
+
+if __name__ == "__main__":
+    unittest.main()
