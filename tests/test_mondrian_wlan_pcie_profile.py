@@ -3,7 +3,7 @@ import pathlib
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-KERNEL_SHA = "c67ed74ffe11bd2133b560078a20cf0c04e18d97"
+KERNEL_SHA = "2efda4cf1afa2a7098d5abd4806769903e181f73"
 MAKE_ARGS = (
     "CONFIG_CNSS_QCA6490=y", "CONFIG_ROME_IF=pci",
     "WLAN_CTRL_NAME=wlan", "TARGET_BUILD_VARIANT=user",

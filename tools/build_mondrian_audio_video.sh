@@ -5,7 +5,7 @@ cd "$GITHUB_WORKSPACE"
 export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
 export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
 unset KBUILD_MODPOST_WARN
-kernel_sha=c67ed74ffe11bd2133b560078a20cf0c04e18d97
+kernel_sha=2efda4cf1afa2a7098d5abd4806769903e181f73
 kout="$RUNNER_TEMP/mondrian-out"
 audio="$GITHUB_WORKSPACE/upstream/xiaomi-audio"
 video="$GITHUB_WORKSPACE/upstream/qualcomm/video"

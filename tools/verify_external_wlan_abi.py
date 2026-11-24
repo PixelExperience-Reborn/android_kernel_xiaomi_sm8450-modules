@@ -20,7 +20,7 @@ def main():
     output = args.kernel_out.resolve()
     module = args.module.resolve()
     if command(["git", "-C", str(kernel), "rev-parse", "HEAD"]) != (
-        "c67ed74ffe11bd2133b560078a20cf0c04e18d97"
+        "2efda4cf1afa2a7098d5abd4806769903e181f73"
     ):
         p.error("kernel commit drift")
     for file in (output / "vmlinux", output / "Module.symvers",
@@ -43,7 +43,7 @@ def main():
         return hashlib.sha256(path.read_bytes()).hexdigest()
     evidence = {
         "device": "mondrian",
-        "kernel_commit": "c67ed74ffe11bd2133b560078a20cf0c04e18d97",
+        "kernel_commit": "2efda4cf1afa2a7098d5abd4806769903e181f73",
         "kernelrelease": version,
         "module": module.name,
         "vermagic": vermagic,

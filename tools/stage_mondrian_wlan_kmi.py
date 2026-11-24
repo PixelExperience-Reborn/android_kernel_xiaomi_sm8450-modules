@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import sys
 
-KERNEL_SHA = "c67ed74ffe11bd2133b560078a20cf0c04e18d97"
+KERNEL_SHA = "2efda4cf1afa2a7098d5abd4806769903e181f73"
 ROOT_WLAN_DEPS = frozenset(
     ("cnss2", "mi_cnss_statistic", "cfg80211",
      "cnss_prealloc", "cnss_nl", "cnss_utils")

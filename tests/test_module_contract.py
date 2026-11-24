@@ -20,7 +20,7 @@ class ModuleContractTests(unittest.TestCase):
         self.assertEqual(d["build_status"], "current_kernel_full_lto_and_external_bsp_abi_pending")
         self.assertEqual(
             d["selected_oem_source_candidates"]["selected_kernel"]["commit_sha"],
-            "c67ed74ffe11bd2133b560078a20cf0c04e18d97")
+            "2efda4cf1afa2a7098d5abd4806769903e181f73")
         self.assertFalse(d["selected_oem_source_candidates"]["abi_verified"])
         self.assertFalse(d["selected_oem_source_candidates"]["external_ko_compiled"])
         self.assertEqual(d["last_verified_build"]["run_id"], 43088150435)

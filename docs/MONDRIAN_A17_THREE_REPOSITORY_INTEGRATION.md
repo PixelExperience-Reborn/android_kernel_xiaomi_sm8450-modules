@@ -9,9 +9,9 @@ reference **only**; no Lineage driver, DTS or ROM base is selected.
 
 | Source | Pinned revision |
 | --- | --- |
-| Kernel: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450` | `c67ed74ffe11bd2133b560078a20cf0c04e18d97` |
+| Kernel: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450` | `2efda4cf1afa2a7098d5abd4806769903e181f73` |
 | Modules: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules` | current active bringup PR head, recorded by the CI run |
-| Devicetrees: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees` | `a0db12120fc6c29cc5855d3e1699c9ef73594ee3` |
+| Devicetrees: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees` | `2550600f85a1981484d28c92da4b690eac23f62f` |
 | Xiaomi original kernel DT: `MiCode/kernel_devicetree` | `34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c` |
 | Xiaomi original Camera Kernel | `9ed4ce96d49c0759c6365627113c5f59c2407942` |
 | Xiaomi original Cape Camera platform | `a59a63bd498b94074c41357a466874b99aec62a8` |
@@ -28,6 +28,8 @@ foreign board, module, SHA or driver ABI is substituted.
 **A green diagnostic build does not equal a bootable ROM.** The combined
 report explicitly keeps production `modules.load`, `boot.img`,
 `dtbo.img` and runtime flags false.
+
+Kernel #31 (run 45431700528) compiled Goodix against the new pinned kernel with LLVM23 and unchanged hardening. The prior full Modules #120 result is historical; the updated pins require a fresh exact three-repository qualification. The linked M11A FDT must contain the Goodix primary DSI phandle, and runtime remains unverified.
 
 ## Hardware tracks — evidence versus unresolved work
 

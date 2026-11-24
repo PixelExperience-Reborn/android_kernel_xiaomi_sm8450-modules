@@ -6,7 +6,7 @@
   "soc": "SM8475",
   "kernel": {
     "repository": "PixelExperience-Reborn/android_kernel_xiaomi_sm8450",
-    "commit": "c67ed74ffe11bd2133b560078a20cf0c04e18d97",
+    "commit": "2efda4cf1afa2a7098d5abd4806769903e181f73",
     "version": "5.10.81"
   },
   "manufacturer_candidate": {

@@ -4,7 +4,7 @@
   "android_base": "AOSP 17",
   "device": "mondrian",
   "soc": "SM8475",
-  "selected_kernel_commit": "c67ed74ffe11bd2133b560078a20cf0c04e18d97",
+  "selected_kernel_commit": "2efda4cf1afa2a7098d5abd4806769903e181f73",
   "manufacturer_camera": {
     "repository": "MiCode/vendor_qcom_opensource_camera-kernel",
     "commit": "9ed4ce96d49c0759c6365627113c5f59c2407942",
@@ -13,7 +13,7 @@
   },
   "xiaomi_device_tree": {
     "repository": "PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees",
-    "commit": "a0db12120fc6c29cc5855d3e1699c9ef73594ee3",
+    "commit": "2550600f85a1981484d28c92da4b690eac23f62f",
     "manufacturer_repository": "MiCode/kernel_devicetree",
     "manufacturer_commit": "34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c",
     "common_dts_git_blob": "e4e321d4d54353f0243b0283647528180baa3137"

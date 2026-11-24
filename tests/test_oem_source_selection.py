@@ -49,7 +49,7 @@ class OemSourceSelectionTests(unittest.TestCase):
     def test_selected_kernel_matches_both_ci_paths_and_no_abi_implicit_fallback(self):
         """Old verified run is historical, not proof for the active pinned kernel."""
         selected = self.cfg["selected_oem_source_candidates"]
-        current = "c67ed74ffe11bd2133b560078a20cf0c04e18d97"
+        current = "2efda4cf1afa2a7098d5abd4806769903e181f73"
         old = "2466406b9beac724960b0c88e6e794421d0466e7"
         self.assertEqual(selected["selected_kernel"]["commit_sha"], current)
         self.assertEqual(self.cfg["wlan_runtime_closure"]["kernel_commit"], current)
@@ -62,7 +62,7 @@ class OemSourceSelectionTests(unittest.TestCase):
         helper = (ROOT / "tools/verify_external_module_abi.py").read_text()
         self.assertIn('p.add_argument("--expected-kernel-commit", required=True,', helper)
         self.assertNotIn("DEFAULT_KERNEL_COMMIT", helper)
-        self.assertIn('kernel_sha=c67ed74ffe11bd2133b560078a20cf0c04e18d97', (ROOT / "tools/build_mondrian_audio_video.sh").read_text())
+        self.assertIn('kernel_sha=2efda4cf1afa2a7098d5abd4806769903e181f73', (ROOT / "tools/build_mondrian_audio_video.sh").read_text())
 
     def test_audio_source_is_xiaomi_ziyi_without_fm(self):
         audio = self.cfg["selected_oem_source_candidates"]["audio"]
