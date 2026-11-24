@@ -70,6 +70,58 @@ and requires the notifier. No reason to rewrite the successful Goodix fix.
 Actual registration, pointer match, event delivery and wake gestures
 (fod_type/double_type before sleep) must still be observed on hardware.
 
+## Additional binary evidence: Goodix sysfs consumers
+
+Read-only inspection of the archived ARM64 binary copies for mondrian
+found a separate userspace ABI gap. These are not independent verification
+of a factory package. No third-party driver, device configuration, HAL
+binary or LineageOS code has been imported.
+
+The three blob IDs in the existing maintainer vendor archive
+[LF52406 at 3ccf06a](https://github.com/LF52406/proprietary_vendor_xiaomi_mondrian/tree/3ccf06a7c4f6543a2a8b0811e8843514a624b56b)
+match the inspected [TheMuppets archive at 3535868](https://github.com/TheMuppets/proprietary_vendor_xiaomi_mondrian/tree/3535868a024688fb69067e1e2c701935210f8d68):
+
+| Relative vendor file | Git blob SHA-1 |
+|---|---|
+| lib64/hw/fingerprint.goodix_fod.default.so | a5b11731088660dad24159262080a645eb56b964 |
+| lib64/libgf_hal.so | 8eb91088ac0ca6aaad74e4a013ed9f493ef0a220 |
+| lib64/hw/fingerprint.fpc_fod.default.so | c350f441e34623a83f7a8e72ce0911078bd20020 |
+
+Archive history attributes the Goodix wrapper to OS2.0.203.0.VMNMIXM
+([da8a760](https://github.com/TheMuppets/proprietary_vendor_xiaomi_mondrian/commit/da8a7603c1c794c1489cc7f599e93489433f5791))
+and libgf_hal.so to OS3.0.2.0.VMNMIXM
+([8ccad3c](https://github.com/TheMuppets/proprietary_vendor_xiaomi_mondrian/commit/8ccad3c85b27bd20527e84cf622d711868c991d6)).
+Do not treat this mixed archive as a single authenticated factory image.
+
+The wrapper imports libgf_hal.so. In that library, ARM64 ADRP/ADD string
+references, BL targets resolved through .rela.plt, and register setup
+establish these call sites (ELF virtual addresses, not runtime addresses):
+
+| Path under /sys/class/mi_display/disp-DSI-0/ | Observed calls | Evidence |
+|---|---|---|
+| wp_info | __open_2, __read_chk, close | CustomizedAlgo::getOEMWPInfo, xref 0x31a50, read 0x31a80; caller-supplied count |
+| flatmode_check | __open_2, read, close | SZCustomizedProductTest::ReadFlatmode, xref 0x36ad0, read 0x36b04; w2 = 10 at 0x36afc |
+| disp_param | __open_2, __write_chk, close | xref 0x367b0, open 0x367c0 with O_RDWR, write 0x367f0 |
+
+For disp_param the helper-generated feature/value command and normal
+authentication reachability remain to be resolved; the flatmode read
+is in a product-test function and is not proof of a normal FOD path.
+The 10-byte flatmode read is **not** the FOD event read size.
+Neither fingerprint wrapper nor libgf_hal contains the full
+/dev/mi_display/disp_feature string; do not infer its absence in the
+full factory software from those three binaries.
+
+The [Xiaomi candidate sysfs](https://github.com/MiCode/vendor_opensource_display-drivers/blob/bf0d5e23be5457001a18aa9dcd68cb17994ae36a/msm/mi_disp/mi_disp_sysfs.c)
+implements real display operations for all three paths. Its
+mi_disp_feature_attach_display creates the per-display DSI device and
+attributes. The native PE mondrian_fod.c creates disp_feature, not these
+per-display attributes. This is a concrete API difference; it is not
+justification to add fabricated calibration or flatmode results. The
+factory HWC and the FOD character-device consumer remain unverified.
+The inventory now recognizes sysfs-only consumers and fortified
+Bionic I/O imports, including libgf_hal.so. It still does not infer
+call arguments from strings.
+
 ## Next evidence: original vendor HAL, not another ROM
 
 Use the extracted vendor partition of an independently sourced, verified
@@ -85,8 +137,8 @@ python3 tools/audit_mondrian_display_hal.py \
 
 Substitute the actual stock build. Optionally record the archive SHA256
 with --firmware-sha256. The tool scans ELF files under bin, lib, lib64,
-identifies path/name candidates, hashes them and records DT_NEEDED and
-relevant imported I/O functions. Missing literals or imports are not
+identifies character-device and sysfs path/name candidates, hashes them
+and records DT_NEEDED and relevant imported I/O functions. Missing literals or imports are not
 proof of absence: wrappers and indirect calls are possible. Supply the
 JSON plus the relevant original binaries privately for ARM64 disassembly.
 Confirm ioctl request numbers, structure usage, read call sizes and

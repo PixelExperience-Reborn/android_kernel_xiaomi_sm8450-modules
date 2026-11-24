@@ -16,9 +16,16 @@ import stat
 import subprocess
 
 MAX_BYTES = 128 * 1024 * 1024
-NAME_HINT = re.compile(r"display|composer|fingerprint|goodix|(?:^|[_.-])sdm(?:[_.-]|$)|libdrm|gralloc|hwc", re.I)
-IO_NAMES = {"open", "open64", "openat", "read", "__read_chk", "readv", "pread64",
-            "ioctl", "__ioctl", "poll", "ppoll", "epoll_wait", "epoll_pwait"}
+NAME_HINT = re.compile(r"display|composer|fingerprint|goodix|libgf_hal|(?:^|[_.-])sdm(?:[_.-]|$)|libdrm|gralloc|hwc", re.I)
+DISPLAY_SYSFS = (
+    "/sys/class/mi_display/disp-DSI-0/disp_param",
+    "/sys/class/mi_display/disp-DSI-0/flatmode_check",
+    "/sys/class/mi_display/disp-DSI-0/wp_info",
+)
+IO_NAMES = {"open", "open64", "openat", "__open_2", "__openat_2",
+            "close", "read", "__read_chk", "readv", "pread64", "write",
+            "__write_chk", "writev", "pwrite64", "ioctl", "__ioctl",
+            "poll", "ppoll", "epoll_wait", "epoll_pwait"}
 
 
 def identify(data, name):
@@ -30,11 +37,15 @@ def identify(data, name):
         return None
     direct = b"/dev/mi_display/disp_feature" in data
     split = b"mi_display" in data and b"disp_feature" in data
-    if not (direct or split or NAME_HINT.search(name)):
+    # The Goodix library uses per-display sysfs without the disp_feature
+    # character-device literal. Do not discard such a consumer by filename.
+    sysfs = [path for path in DISPLAY_SYSFS if path.encode("ascii") in data]
+    hint = bool(NAME_HINT.search(name))
+    if not (direct or split or sysfs or hint):
         return None
     return {"architecture": arch, "full_disp_feature_path_literal": direct,
             "mi_display_and_disp_feature_literals": split,
-            "filename_hint": bool(NAME_HINT.search(name))}
+            "mi_display_sysfs_path_literals": sysfs, "filename_hint": hint}
 
 
 def parse_readelf(dynamic, symbols):
