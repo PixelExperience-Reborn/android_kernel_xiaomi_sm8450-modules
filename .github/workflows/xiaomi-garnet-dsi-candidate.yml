@@ -67,7 +67,7 @@ jobs:
         with:
           path: /tmp/google-clang
           key: mondrian-a17-clang-r614150-c9ed23e2ba198658b630d4b10e09fa980cd43119
-      - name: Download exact #131 OEM kernel and MMRM symbol evidence
+      - name: Download archived OEM kernel and MMRM symbol evidence from run 131
         uses: actions/download-artifact@v4
         with:
           name: mondrian-coherent-oem-wlan-kmi-diagnostics
@@ -83,15 +83,42 @@ jobs:
           ko="$RUNNER_TEMP/mondrian-out"
           mkdir -p "$ko"
           baseline="$RUNNER_TEMP/baseline131"
+          # OEM Makefile wraps CC with scripts/basic/cc-wrapper before probing
+          # CLANG_FLAGS. On a clean O= tree the first config invocation builds
+          # that wrapper but can probe with empty target flags. Bootstrap it
+          # using the proven GKI target BEFORE installing the archived config.
+          # Never accept the bootstrap config as the replay configuration.
+          make -C kernel O="$ko" gki_defconfig
+          test -x "$ko/scripts/basic/cc-wrapper"
+          "$ko/scripts/basic/cc-wrapper" clang --version
+          printf '%s\n' '.arch armv8.5-a+memtag' 'stgm xzr,[x0]' | \
+            "$ko/scripts/basic/cc-wrapper" clang --target=aarch64-linux-gnu \
+              -Werror -c -x assembler -o /dev/null -
+          "$ko/scripts/basic/cc-wrapper" clang --target=aarch64-linux-gnu \
+            -Werror -fsanitize=shadow-call-stack -ffixed-x18 -c -x c /dev/null -o /dev/null
           cp "$baseline/_temp/mondrian-out/.config" "$ko/.config"
           cp "$baseline/_temp/mondrian-out/Module.symvers" "$ko/Module.symvers"
           echo "515a9b992035c43e7c78d548287fb00d263dbad3c88e5392ab1bc043105870a3  $ko/.config" | sha256sum -c -
           echo "2191efa191b246a22c9e8631fd471447e53092d340b47b49698eed7cc65c4c29  $ko/Module.symvers" | sha256sum -c -
           make -C kernel O="$ko" olddefconfig
+          # Exact byte identity is required, not just a subset of hardening options.
+          if ! cmp -s "$baseline/_temp/mondrian-out/.config" "$ko/.config"; then
+            diff -u "$baseline/_temp/mondrian-out/.config" "$ko/.config" || true
+            exit 1
+          fi
           python3 tools/verify_mondrian_kernel_hardening.py \
             --generated-config "$ko/.config" --out "$RUNNER_TEMP/garnet-hardening.json"
           make -C kernel O="$ko" -j3 modules_prepare
           echo "515a9b992035c43e7c78d548287fb00d263dbad3c88e5392ab1bc043105870a3  $ko/.config" | sha256sum -c -
+          echo "2191efa191b246a22c9e8631fd471447e53092d340b47b49698eed7cc65c4c29  $ko/Module.symvers" | sha256sum -c -
+          grep -Fx 'CONFIG_MODVERSIONS=y' "$ko/.config"
+          make -s -C kernel O="$ko" kernelrelease
+          python3 - "$baseline/_temp/display-abi-evidence.json" "$ko/include/config/kernel.release" <<'PY'
+          import json, pathlib, sys
+          evidence = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          release = pathlib.Path(sys.argv[2]).read_text().strip()
+          assert release == evidence["kernelrelease"], (release, evidence["kernelrelease"])
+          PY
       - name: Compile and MODPOST entire Xiaomi Display candidate against archived OEM symbols
         run: |
           set -euo pipefail
@@ -112,7 +139,10 @@ jobs:
           name: mondrian-xiaomi-garnet-full-symbol-replay
           retention-days: 7
           if-no-files-found: warn
+          include-hidden-files: true
           path: |
             ${{ runner.temp }}/garnet-source/source-evidence.json
             ${{ runner.temp }}/garnet-object/
             ${{ runner.temp }}/garnet-hardening.json
+            ${{ runner.temp }}/mondrian-out/.config
+            ${{ runner.temp }}/mondrian-out/include/config/kernel.release
