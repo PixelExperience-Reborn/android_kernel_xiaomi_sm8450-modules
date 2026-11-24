@@ -49,7 +49,19 @@ def validate_gitmodules(text):
         key = 'submodule "' + path + '"'
         if key not in config or dict(config[key]) != {"path": path, "url": url}:
             raise ValueError("unexpected Audio/Video source selection")
-    if len(config.sections()) != 5:
+    # Reviewed Qualcomm WAIPIO 11900 data/EVA sources (see
+    # tools/verify_qualcomm_data_eva_sources.py for commit and blob pins).
+    clo = "https://git.codelinaro.org/clo/la/"
+    for path, url in (
+        ("upstream/qualcomm/dataipa", clo + "platform/vendor/opensource/dataipa.git"),
+        ("upstream/qualcomm/datarmnet", clo + "platform/vendor/qcom/opensource/datarmnet.git"),
+        ("upstream/qualcomm/datarmnet-ext", clo + "platform/vendor/qcom/opensource/datarmnet-ext.git"),
+        ("upstream/qualcomm/eva", clo + "platform/vendor/opensource/eva-kernel.git"),
+    ):
+        key = 'submodule "' + path + '"'
+        if key not in config or dict(config[key]) != {"path": path, "url": url}:
+            raise ValueError("unexpected Qualcomm data/EVA source selection")
+    if len(config.sections()) != 9:
         raise ValueError("unexpected extra Git submodules in mondrian BSP")
 
 
