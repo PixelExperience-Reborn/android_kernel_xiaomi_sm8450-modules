@@ -3,7 +3,7 @@
 """Isolated Xiaomi garnet-t-oss display candidate; never selects a product driver.
 
 Run with three local Git checkouts: pinned PE kernel, Xiaomi candidate and
-Google Clang. With --build, also supply the completed Kernel #31 output,
+Google Clang, plus the pinned Xiaomi display DT for builds. With --build, also supply the completed Kernel #31 output,
 its display-abi-evidence.json, and MMRM Module.symvers from the same build.
 Source-only is the default. No full kernel build, flashing, or packaging.
 """
@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tarfile
 import tempfile
@@ -30,6 +31,8 @@ BLOBS = {
     "include/uapi/display/drm/sde_drm.h": "95615480dc72ffc6244870f777051d2ad76ade8d",
     "include/uapi/display/drm/mi_disp.h": "e6ce0e2d17728872e40dde6d5138505b307edfd2",
 }
+DISPLAY_DT = "ab5bc7b921d3d4072ce11eecfde984382e3ec695"
+DISPLAY_DT_BLOB = "8c955d4cb960935631a3e6efcf70bf3e3f2c2573"
 BASE = "techpack/display"
 SDE = "include/uapi/display/drm/sde_drm.h"
 
@@ -65,12 +68,65 @@ def save(path, report):
     path.write_text(json.dumps(report, indent=2) + "\n")
 
 
+def replace_once(text, old, new):
+    require(text.count(old) == 1, "Candidate patch context changed: " + old[:80])
+    return text.replace(old, new, 1)
+
+
+def adapt_optional_led(text):
+    """Keep actual LED support when reachable; reject absent hardware explicitly."""
+    text = replace_once(text, "#include <misc/isl97900_led.h>",
+                        "#if IS_REACHABLE(CONFIG_ISL97900_LED)\n"
+                        "#include <misc/isl97900_led.h>\n#endif")
+    old = ("\tcase DSI_BACKLIGHT_I2C:\n"
+           "\t\tif (panel->rgb_left_led_node)\n"
+           "\t\t\tisl97900_led_event(panel->rgb_left_led_node,\n"
+           "\t\t\t\t\t0, bl_lvl);\n\n"
+           "\t\tif (panel->rgb_right_led_node)\n"
+           "\t\t\tisl97900_led_event(panel->rgb_right_led_node,\n"
+           "\t\t\t\t\t0, bl_lvl);\n"
+           "\t\tbreak;")
+    new = old.replace("\n\t\tif (panel->rgb_left_led_node)",
+                      "\n#if IS_REACHABLE(CONFIG_ISL97900_LED)\n"
+                      "\t\tif (panel->rgb_left_led_node)", 1)
+    new = new.replace("\n\t\tbreak;",
+                      "\n#else\n\t\treturn -EOPNOTSUPP;\n#endif\n\t\tbreak;")
+    text = replace_once(text, old, new)
+    # Fail registration, not just parsing: the original caller ignores most
+    # parse errors. An unexpected I2C panel must not appear operational.
+    start = text.index("static int dsi_panel_bl_register(struct dsi_panel *panel)")
+    end = text.index("static void dsi_panel_pwm_unregister", start)
+    register = replace_once(text[start:end],
+                            "\tcase DSI_BACKLIGHT_I2C:\n\t\tbreak;",
+                            "\tcase DSI_BACKLIGHT_I2C:\n"
+                            "#if !IS_REACHABLE(CONFIG_ISL97900_LED)\n"
+                            "\t\treturn -EOPNOTSUPP;\n#endif\n\t\tbreak;")
+    return text[:start] + register + text[end:]
+
+
+def verify_mondrian_dcs(dt):
+    pinned(dt, DISPLAY_DT)
+    path = dt / "display/mondrian-sde-display-mtp.dtsi"
+    require(git(dt, "hash-object", str(path)) == DISPLAY_DT_BLOB,
+            "Re-audit manufacturer mondrian display DTS")
+    source = path.read_text()
+    blocks = re.findall(r"&dsi_m11a_42_02_0a_dsc_cmd\s*\{([^{}]*)\}", source)
+    require(any('qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";' in b
+                for b in blocks), "M11A DCS backlight not proven")
+    require("bl_ctrl_i2c" not in source and "qcom,panel-rgb-" not in source,
+            "Re-audit I2C LED requirement")
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--kernel", required=True, type=Path)
     p.add_argument("--xiaomi-display", required=True, type=Path)
     p.add_argument("--out", required=True, type=Path, help="New diagnostic output directory")
-    p.add_argument("--build", action="store_true")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--build", action="store_true")
+    mode.add_argument("--objects-only", action="store_true",
+                      help="Compile candidate dsi_panel.o only, with modules_prepare output")
+    p.add_argument("--xiaomi-display-dt", type=Path)
     p.add_argument("--kernel-out", type=Path)
     p.add_argument("--baseline-evidence", type=Path)
     p.add_argument("--mmrm-symvers", type=Path)
@@ -120,26 +176,33 @@ def main():
     }
     save(out / "source-evidence.json", report)
     print("Source audit complete; Xiaomi Display remains an unselected candidate.")
-    if not a.build:
+    if not (a.build or a.objects_only):
         return
-    require(all((a.kernel_out, a.baseline_evidence, a.mmrm_symvers, a.clang_root)),
-            "--build requires kernel output, baseline evidence, MMRM symbols, Clang")
-    ko, evidence, mmrm, clang = (v.resolve() for v in
-        (a.kernel_out, a.baseline_evidence, a.mmrm_symvers, a.clang_root))
+    require(all((a.kernel_out, a.clang_root, a.xiaomi_display_dt)),
+            "Compilation requires kernel output, pinned Clang and Xiaomi display DT")
+    verify_mondrian_dcs(a.xiaomi_display_dt.resolve())
+    report["manufacturer_m11a_dcs_backlight"] = True
+    report["xiaomi_display_dt_commit"] = DISPLAY_DT
+    ko, clang = (v.resolve() for v in (a.kernel_out, a.clang_root))
     for root in (kernel, vendor, ko):
         require(root != out and root not in out.parents,
                 "Build diagnostic output must remain separate")
     pinned(clang, CLANG)
-    for f in (ko / ".config", ko / "vmlinux", ko / "Module.symvers",
-              ko / "include/generated/autoconf.h", mmrm, evidence):
+    for f in (ko / ".config", ko / "include/generated/autoconf.h"):
         nonempty(f)
-    baseline = json.loads(evidence.read_text())
-    require(baseline.get("kernel_commit") == KERNEL
-            and baseline.get("module_compile") is True
-            and baseline.get("module") == "msm_drm.ko"
-            and baseline.get("kernel_config_sha256") == sha256(ko / ".config")
-            and baseline.get("module_symvers_sha256") == sha256(ko / "Module.symvers"),
-            "Kernel output differs from the successful baseline")
+    if a.build:
+        require(all((a.baseline_evidence, a.mmrm_symvers)),
+                "--build requires baseline evidence and MMRM symbols")
+        evidence, mmrm = (v.resolve() for v in (a.baseline_evidence, a.mmrm_symvers))
+        for f in (ko / "vmlinux", ko / "Module.symvers", mmrm, evidence):
+            nonempty(f)
+        baseline = json.loads(evidence.read_text())
+        require(baseline.get("kernel_commit") == KERNEL
+                and baseline.get("module_compile") is True
+                and baseline.get("module") == "msm_drm.ko"
+                and baseline.get("kernel_config_sha256") == sha256(ko / ".config")
+                and baseline.get("module_symvers_sha256") == sha256(ko / "Module.symvers"),
+                "Kernel output differs from the successful baseline")
     # MMRM symbols must come from the same prepared build; their hash is
     # recorded, but this input alone cannot establish MMRM build provenance.
     config = (ko / ".config").read_text()
@@ -154,9 +217,12 @@ def main():
         env.pop(key, None)
     env.update(PATH=str(toolchain) + os.pathsep + env["PATH"],
                ARCH="arm64", LLVM="1", LLVM_IAS="1", CROSS_COMPILE="aarch64-linux-gnu-")
-    report["mmrm_symvers_sha256"] = sha256(mmrm)
-    report["baseline_config_sha256"] = sha256(ko / ".config")
-    report["baseline_symvers_sha256"] = sha256(ko / "Module.symvers")
+    require(not re.search(r"^CONFIG_ISL97900_LED=[ym]$", config, re.M),
+            "Unexpected LED configuration; re-audit actual driver and header")
+    report["prepared_config_sha256"] = sha256(ko / ".config")
+    if a.build:
+        report["mmrm_symvers_sha256"] = sha256(mmrm)
+        report["baseline_symvers_sha256"] = sha256(ko / "Module.symvers")
     report["candidate_compile_attempted"] = True
     save(out / "source-evidence.json", report)
     with tempfile.TemporaryDirectory(prefix="xiaomi-display-", dir=out) as tmp:
@@ -169,14 +235,35 @@ def main():
         display.mkdir()
         with tarfile.open(archive) as tar:
             tar.extractall(display, filter="data")
+        panel = display / "msm/dsi/dsi_panel.c"
+        panel.write_text(adapt_optional_led(panel.read_text()))
+        kbuild = display / "msm/Kbuild"
+        kbuild.write_text(replace_once(kbuild.read_text(),
+                                       "-Iinclude/linux \\", "-I$(KERNEL_SRC)/include/linux \\")
+                          .replace("-Iinclude/linux/drm\n", "-I$(KERNEL_SRC)/include/linux/drm\n", 1))
+        report["adapted_panel_sha256"] = sha256(panel)
+        report["adapted_kbuild_sha256"] = sha256(kbuild)
+        save(out / "source-evidence.json", report)
         cmd = ["make", "-C", str(kernel), f"O={ko}", "-j3",
                f"M={display / 'msm'}", f"DISPLAY_ROOT={display}",
                f"KERNEL_SRC={kernel}", f"KERNEL_ROOT={kernel}", f"OUT={ko}",
-               f"KBUILD_EXTRA_SYMBOLS={mmrm}", "KBUILD_MODPOST_WARN=",
-               "KBUILD_MODPOST_NOFINAL=", "modules"]
+               "KBUILD_MODPOST_WARN=", "KBUILD_MODPOST_NOFINAL="]
+        if a.objects_only:
+            cmd += ["dsi/dsi_panel.o"]
+        else:
+            cmd += [f"KBUILD_EXTRA_SYMBOLS={mmrm}", "modules"]
         with (out / "candidate-build.log").open("w") as log:
             result = subprocess.run(cmd, env=env, stdout=log, stderr=subprocess.STDOUT)
         require(result.returncode == 0, "Candidate compile failed; inspect candidate-build.log")
+        if a.objects_only:
+            obj = display / "msm/dsi/dsi_panel.o"
+            nonempty(obj)
+            shutil.copy2(obj, out / "dsi_panel.o")
+            report["candidate_dsi_panel_object_compiled"] = True
+            report["candidate_object_sha256"] = sha256(obj)
+            save(out / "source-evidence.json", report)
+            print("Candidate DSI panel object compiled; full module and ABI NOT qualified.")
+            return
         module = display / "msm/msm_drm.ko"
         nonempty(module)
         validator = Path(__file__).resolve().with_name("verify_external_module_abi.py")
@@ -187,6 +274,7 @@ def main():
                        env=env, check=True)
         report["candidate_module_compiled"] = True
         report["candidate_module_sha256"] = sha256(module)
+        shutil.copy2(module, out / "candidate-msm_drm.ko")
         save(out / "source-evidence.json", report)
     print("Candidate compile/ELF/vermagic checked; SDE userspace ABI and runtime NOT qualified.")
 
