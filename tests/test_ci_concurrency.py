@@ -1,4 +1,4 @@
-"""PR source gates run automatically; full OEM Full LTO builds are manual."""
+"""PR source gates remain light; authorized branch push may run ServerHive Full LTO."""
 from pathlib import Path
 import unittest
 
@@ -6,14 +6,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CIConcurrencyTests(unittest.TestCase):
-    def test_coherent_pr_checks_sources_and_full_build_is_manual(self):
+    def test_coherent_pr_sources_and_trusted_serverhive_full_build(self):
         text = (ROOT / ".github/workflows/oem-coherent-wlan-compile.yml").read_text()
         triggers = text.split("jobs:\n", 1)[0]
         self.assertIn("\n  pull_request:", triggers)
         self.assertIn("\n  workflow_dispatch:", triggers)
-        self.assertNotIn("\n  push:", triggers)
+        self.assertIn("\n  push:\n", triggers)
+        self.assertIn("      - bringup/a17-mondrian-oem-bsp-20261111", triggers)
+        self.assertIn("      - .github/workflows/oem-coherent-wlan-compile.yml", triggers)
+        self.assertIn("contains(github.event.head_commit.message, '[serverhive-qualification]')", text)
+        self.assertIn("group: mondrian-heavy", text)
         self.assertIn(
-            "group: mondrian-coherent-external-wlan-build-${{ github.head_ref || github.ref_name }}",
+            "group: mondrian-coherent-external-wlan-build-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}",
             text,
         )
         self.assertIn("cancel-in-progress: false", text)

@@ -1,8 +1,13 @@
 name: Qualify coherent mondrian OEM Image, Display, WLAN, MMRM, Camera, Audio and Video
 
 on:
-  # Full kernel and all modules are built once, via pull_request or manual
-  # workflow_dispatch. No redundant push Full LTO on a second runner.
+  # One trusted bringup push qualifies the existing full OEM CI on ServerHive.
+  # Never run the heavyweight job for PR/fork events; remove push after passing.
+  push:
+    branches:
+      - bringup/a17-mondrian-oem-bsp-20261111
+    paths:
+      - .github/workflows/oem-coherent-wlan-compile.yml
   pull_request:
     paths:
       - .github/workflows/oem-coherent-wlan-compile.yml
@@ -49,7 +54,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: mondrian-coherent-external-wlan-build-${{ github.head_ref || github.ref_name }}
+  group: mondrian-coherent-external-wlan-build-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -89,9 +94,11 @@ jobs:
   external-wlan:
     # Full OEM kernel and external BSP compilation is explicitly opt-in.
     # Pull requests retain the fast source gate without rebuilding Full LTO.
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/bringup/a17-mondrian-oem-bsp-20261111' && contains(github.event.head_commit.message, '[serverhive-qualification]'))
     needs: source
-    runs-on: ubuntu-24.04
+    runs-on:
+      group: mondrian-heavy
+      labels: pe-mondrian-heavy
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
@@ -111,7 +118,18 @@ jobs:
           path: device-tree
           submodules: recursive
           persist-credentials: false
+      - name: Verify installed Ubuntu dependencies on isolated ServerHive
+        if: runner.environment == 'self-hosted'
+        run: |
+          set -euo pipefail
+          test "$RUNNER_NAME" = serverhive-mondrian
+          for pkg in bc bison flex make gcc device-tree-compiler libssl-dev libelf-dev dwarves binutils-aarch64-linux-gnu kmod; do
+            dpkg-query -W '-f=${Status}' "$pkg" | grep -Fxq 'install ok installed' || { echo "::error::Missing preinstalled package $pkg"; exit 1; }
+          done
+          df -h "$RUNNER_TEMP"
+          free -h
       - name: Install signed Ubuntu 24.04 kernel build dependencies (no Azure mirror)
+        if: runner.environment == 'github-hosted'
         timeout-minutes: 13
         run: bash tools/install_ci_prerequisites.sh
       - name: Restore compiler cache
@@ -153,8 +171,11 @@ jobs:
           python3 kernel/tools/verify_mondrian_oem_eroFS.py \
             --generated-config "$RUNNER_TEMP/mondrian-out/.config"
       - name: Prepare bounded Full LTO memory and disk headroom
+        if: runner.environment == 'github-hosted'
         run: bash tools/prepare_mondrian_lto_resources.sh
       - name: Build full OEM vmlinux and in-tree modules first
+        env:
+          PE_CI_ENVIRONMENT: ${{ runner.environment }}
         run: |
           set -euo pipefail
           export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
@@ -166,7 +187,12 @@ jobs:
           echo "::endgroup::"
           # Use the same exact Google LLVM23 linker, but bound LLD's own threads.
           # This does NOT select ThinLTO, remove CFI/SCS/HW-tag KASAN, or touch OEM code.
-          source tools/prepare_mondrian_lto_linker.sh
+          if [[ "$PE_CI_ENVIRONMENT" == "github-hosted" ]]; then
+            source tools/prepare_mondrian_lto_linker.sh
+          else
+            # Same unwrapped LLVM23 LLD used by the successful ServerHive build.
+            test "$PE_CI_ENVIRONMENT" = "self-hosted"
+          fi
           # Retain all HW KASAN, Full LTO, CFI and SCS build settings.
           # -j2 bounds concurrent compilations; LTO link remains real.
           monitor_resources() {
@@ -196,7 +222,11 @@ jobs:
             fi
           }
           trap report_link_outcome EXIT
-          make -C kernel O="$RUNNER_TEMP/mondrian-out" -j2 vmlinux Image modules
+          if [[ "$PE_CI_ENVIRONMENT" == "self-hosted" ]]; then
+            make -C kernel O="$RUNNER_TEMP/mondrian-out" -j8 vmlinux Image modules
+          else
+            make -C kernel O="$RUNNER_TEMP/mondrian-out" -j2 vmlinux Image modules
+          fi
           test -s "$RUNNER_TEMP/mondrian-out/Module.symvers"
       - name: Verify OEM mondrian Camera power LDO driver and compiled module
         run: |

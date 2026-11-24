@@ -10,11 +10,13 @@ LINKER_SCRIPT = ROOT / "tools/prepare_mondrian_lto_linker.sh"
 
 
 class FullLtoResourceTests(unittest.TestCase):
-    def test_full_kernel_link_is_explicit_manual_only(self):
+    def test_full_kernel_link_is_manual_or_explicit_trusted_push(self):
         coherent = COHERENT.read_text()
         standalone = STANDALONE.read_text()
         coherent_triggers = coherent.split("jobs:\n", 1)[0]
-        self.assertNotIn("\n  push:", coherent_triggers)
+        self.assertIn("\n  push:\n", coherent_triggers)
+        self.assertIn("      - bringup/a17-mondrian-oem-bsp-20261111", coherent_triggers)
+        self.assertIn("contains(github.event.head_commit.message, '[serverhive-qualification]')", coherent)
         self.assertIn("\n  pull_request:", coherent_triggers)
         self.assertIn("\n  workflow_dispatch:", coherent_triggers)
         self.assertIn("    if: github.event_name == 'workflow_dispatch'", coherent)
