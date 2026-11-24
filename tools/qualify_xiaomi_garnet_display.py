@@ -28,6 +28,7 @@ BLOBS = {
     "msm/Kbuild": "7bd79b7c178bb7bcbad9ed1089f3583879181b5a",
     "msm/sde_dbg.c": "96bd7e918b79fdfb05927d733a59d2db436d7fa8",
     "msm/sde_io_util.c": "d15b9cdbe0cb8daba52dbb76b1308527ef80279a",
+    "msm/mi_disp/mi_dsi_panel.c": "50554f638dbf9bb3711afdca500be421edd991e0",
     "msm/mi_disp/mi_dsi_display.c": "91d3094ccb3fb414ad9274aceb9327f4205abfeb",
     "msm/sde/sde_core_perf.c": "e03896d79a45da58aa9a39dcfaf535e364b52a5a",
     "msm/sde/sde_hw_catalog.c": "bbdf6da9252c5be757ecffb8b5b8da55bd966ab4",
@@ -42,6 +43,7 @@ BLOBS = {
 }
 DISPLAY_DT = "ab5bc7b921d3d4072ce11eecfde984382e3ec695"
 DISPLAY_DT_BLOB = "8c955d4cb960935631a3e6efcf70bf3e3f2c2573"
+DISPLAY_M11A_BLOB = "5ac6bab51d40ac0b646bfa4c3bb13e2e477e6fba"
 BASE = "techpack/display"
 SDE = "include/uapi/display/drm/sde_drm.h"
 
@@ -82,6 +84,7 @@ PATCHES = (
     "0001-mondrian-dcs-and-kbuild.patch",
     "0002-oem-llcc-and-pingpong.patch",
     "0003-clang23-prototypes-and-mmrm-init.patch",
+    "0004-mondrian-m11a-pwrkey-scope.patch",
 )
 
 
@@ -101,6 +104,12 @@ def verify_mondrian_dcs(dt):
     path = dt / "display/mondrian-sde-display-mtp.dtsi"
     require(git(dt, "hash-object", str(path)) == DISPLAY_DT_BLOB,
             "Re-audit manufacturer mondrian display DTS")
+    panel = dt / "display/dsi-panel-m11a-42-02-0a-dsc-cmd.dtsi"
+    require(git(dt, "hash-object", str(panel)) == DISPLAY_M11A_BLOB,
+            "Re-audit manufacturer M11A panel source")
+    ids = re.findall(r"mi,panel-id\s*=\s*<\s*(0x[0-9a-fA-F]+)\s+(0x[0-9a-fA-F]+)\s*>\s*;", panel.read_text())
+    require(len(ids) == 1 and (int(ids[0][0], 16) << 32 | int(ids[0][1], 16)) == 0x4D31314100420200,
+            "M11A-only build requires the exact OEM panel ID")
     source = path.read_text()
     blocks = re.findall(r"&dsi_m11a_42_02_0a_dsc_cmd\s*\{([^{}]*)\}", source)
     require(any('qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";' in b
@@ -174,6 +183,8 @@ def main():
             "Compilation requires kernel output, pinned Clang and Xiaomi display DT")
     verify_mondrian_dcs(a.xiaomi_display_dt.resolve())
     report["manufacturer_m11a_dcs_backlight"] = True
+    report["candidate_panel_id"] = "0x4d31314100420200"
+    report["candidate_panel_scope"] = "mondrian-m11a-only"
     report["xiaomi_display_dt_commit"] = DISPLAY_DT
     ko, clang = (v.resolve() for v in (a.kernel_out, a.clang_root))
     for root in (kernel, vendor, ko):
@@ -233,6 +244,7 @@ def main():
         cmd = ["make", "-C", str(kernel), f"O={ko}", "-j3", "-k",
                f"M={display / 'msm'}", f"DISPLAY_ROOT={display}",
                f"KERNEL_SRC={kernel}", f"KERNEL_ROOT={kernel}", f"OUT={ko}",
+               "PE_MONDRIAN_M11A_ONLY=1",
                "KBUILD_MODPOST_WARN=", "KBUILD_MODPOST_NOFINAL="]
         if a.objects_only:
             cmd += ["dsi/dsi_panel.o"]
@@ -280,13 +292,17 @@ def main():
                 versions[symbol] = int(crc, 16)
         imports = command("modprobe", "--dump-modversions", str(module)).splitlines()
         require(bool(imports), "No imported symbol versions")
+        require(not any(line.split()[-1] == "mi_display_pwrkey_callback_set" for line in imports),
+                "Foreign-panel power-key callback still imported")
         for line in imports:
             crc, symbol = line.split()
             require(versions.get(symbol) == int(crc, 16), "CRC mismatch: " + symbol)
         abi_path = out / "candidate-abi-evidence.json"
         abi = json.loads(abi_path.read_text())
         abi.update(imported_crcs_checked=len(imports), hardware_validated=False,
-                   userspace_abi_validated=False, product_driver_selected=False)
+                   userspace_abi_validated=False, product_driver_selected=False,
+                   candidate_panel_scope="mondrian-m11a-only",
+                   foreign_panel_powerkey_callback_imported=False)
         save(abi_path, abi)
         report["candidate_module_compiled"] = True
         report["candidate_module_sha256"] = sha256(module)

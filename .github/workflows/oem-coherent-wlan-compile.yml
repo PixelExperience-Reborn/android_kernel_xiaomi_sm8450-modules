@@ -8,6 +8,8 @@ on:
       - bringup/a17-mondrian-oem-bsp-20261111
     paths:
       - .github/workflows/oem-coherent-wlan-compile.yml
+      - patches/xiaomi-display/**
+      - tools/qualify_xiaomi_garnet_display.py
   workflow_dispatch:
     inputs:
       scope:

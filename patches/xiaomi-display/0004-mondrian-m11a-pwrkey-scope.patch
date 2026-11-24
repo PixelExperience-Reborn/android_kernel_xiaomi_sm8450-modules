@@ -1,0 +1,91 @@
+diff --git a/msm/Kbuild b/msm/Kbuild
+--- a/msm/Kbuild
++++ b/msm/Kbuild
+@@ -74,7 +74,13 @@
+ 
+ KBUILD_CPPFLAGS += $(CDEFINES)
+ 
+-ccflags-y += $(LINUX_INC)
++ccflags-y += $(LINUX_INC)
++
++# The PE-Reborn diagnostic target is the verified mondrian M11A panel.
++# Other Xiaomi panels retain their original PMIC callback dependency.
++ifeq ($(PE_MONDRIAN_M11A_ONLY),1)
++ccflags-y += -DPE_MONDRIAN_M11A_ONLY
++endif
+ 
+ ifeq ($(call cc-option-yn, -Wmaybe-uninitialized),y)
+ EXTRA_CFLAGS += -Wmaybe-uninitialized
+diff --git a/msm/dsi/dsi_panel.c b/msm/dsi/dsi_panel.c
+--- a/msm/dsi/dsi_panel.c
++++ b/msm/dsi/dsi_panel.c
+@@ -4020,8 +4020,27 @@
+ 	panel->parent = parent;
+ 	panel->type = type;
+ 
+-	dsi_panel_update_util(panel, parser_node);
+-	utils = &panel->utils;
++	dsi_panel_update_util(panel, parser_node);
++	utils = &panel->utils;
++
++#ifdef PE_MONDRIAN_M11A_ONLY
++	/*
++	 * This diagnostic target intentionally omits the foreign-panel PMIC
++	 * power-key callback. Refuse any other or unidentified panel before
++	 * parsing resources or registering the DRM panel.
++	 */
++	{
++		u64 panel_id = 0;
++
++		rc = utils->read_u64(utils->data, "mi,panel-id", &panel_id);
++		if (rc || panel_id != M11A_42_02_0A_PANEL_ID) {
++			DSI_ERR("mondrian M11A candidate: unsupported panel id 0x%llx (rc=%d)\n",
++				panel_id, rc);
++			rc = -ENODEV;
++			goto error;
++		}
++	}
++#endif
+ 
+ 	panel->name = utils->get_property(utils->data,
+ 				"qcom,mdss-dsi-panel-name", NULL);
+diff --git a/msm/mi_disp/mi_dsi_panel.c b/msm/mi_disp/mi_dsi_panel.c
+--- a/msm/mi_disp/mi_dsi_panel.c
++++ b/msm/mi_disp/mi_dsi_panel.c
+@@ -38,8 +38,10 @@
+ 
+ static u64 g_panel_id[MI_DISP_MAX];
+ 
+-typedef int (*mi_display_pwrkey_callback)(int);
+-extern void mi_display_pwrkey_callback_set(mi_display_pwrkey_callback);
++#ifndef PE_MONDRIAN_M11A_ONLY
++typedef int (*mi_display_pwrkey_callback)(int);
++extern void mi_display_pwrkey_callback_set(mi_display_pwrkey_callback);
++#endif
+ 
+ 
+ struct dsi_panel *g_panel;
+@@ -99,13 +101,16 @@
+ 	mi_dsi_panel_parse_config(panel);
+ 	mi_panel_id_init(panel);
+ 	atomic_set(&mi_cfg->real_brightness_clone, 0);
+-	if (mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M16T_PANEL_PA ||
+-		mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M16T_PANEL_PB||
+-		mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA ||
+-		mi_get_panel_id(panel->mi_cfg.mi_panel_id) == N16_PANEL_PA ||
+-		mi_get_panel_id(panel->mi_cfg.mi_panel_id) == N16_PANEL_PB){
+-		mi_display_pwrkey_callback_set(mi_display_powerkey_callback);
+-	}
++/* M11A is not in Xiaomi's PMIC bark callback panel list. */
++#ifndef PE_MONDRIAN_M11A_ONLY
++	if (mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M16T_PANEL_PA ||
++		mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M16T_PANEL_PB||
++		mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA ||
++		mi_get_panel_id(panel->mi_cfg.mi_panel_id) == N16_PANEL_PA ||
++		mi_get_panel_id(panel->mi_cfg.mi_panel_id) == N16_PANEL_PB){
++		mi_display_pwrkey_callback_set(mi_display_powerkey_callback);
++	}
++#endif
+ 
+ 	return 0;
+ }
