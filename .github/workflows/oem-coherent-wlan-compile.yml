@@ -133,19 +133,46 @@ jobs:
         timeout-minutes: 13
         run: bash tools/install_ci_prerequisites.sh
       - name: Restore compiler cache
+        if: runner.environment == 'github-hosted'
         id: clang-cache
         uses: actions/cache/restore@v4
         with:
           path: /tmp/google-clang
           key: mondrian-a17-clang-r614150-c9ed23e2ba198658b630d4b10e09fa980cd43119
       - name: Fetch exact Google Android LLVM23 compiler
-        if: steps.clang-cache.outputs.cache-hit != 'true'
+        if: runner.environment == 'github-hosted' && steps.clang-cache.outputs.cache-hit != 'true'
         run: bash kernel/tools/fetch_android_kernel_clang.sh /tmp/google-clang
       - uses: actions/cache/save@v4
-        if: steps.clang-cache.outputs.cache-hit != 'true'
+        if: runner.environment == 'github-hosted' && steps.clang-cache.outputs.cache-hit != 'true'
         with:
           path: /tmp/google-clang
           key: mondrian-a17-clang-r614150-c9ed23e2ba198658b630d4b10e09fa980cd43119
+      - name: Restore pinned Google LLVM23 into isolated ServerHive workspace
+        if: runner.environment == 'self-hosted'
+        run: |
+          set -euo pipefail
+          : "${RUNNER_TOOL_CACHE:?Self-hosted runner tool-cache path missing}"
+          toolchain="$RUNNER_TOOL_CACHE/pe-google-clang-r614150"
+          mkdir -p "$RUNNER_TOOL_CACHE"
+          if [[ ! -e "$toolchain" ]]; then
+            bash kernel/tools/fetch_android_kernel_clang.sh "$toolchain"
+          fi
+          test "$(git -C "$toolchain" rev-parse HEAD)" = c9ed23e2ba198658b630d4b10e09fa980cd43119
+          test -x "$toolchain/clang-r614150/bin/clang"
+          test -x "$toolchain/clang-r614150/bin/ld.lld"
+          # The sandbox hides host /tmp: do not trust restored GitHub-hosted
+          # cache paths. Keep all existing OEM build commands unchanged.
+          if [[ -L /tmp/google-clang ]]; then
+            test "$(readlink /tmp/google-clang)" = "$toolchain"
+          elif [[ -e /tmp/google-clang ]]; then
+            echo "::error::Unexpected existing /tmp/google-clang inside sandbox"
+            exit 1
+          else
+            ln -s "$toolchain" /tmp/google-clang
+          fi
+          test "$(git -C /tmp/google-clang rev-parse HEAD)" = c9ed23e2ba198658b630d4b10e09fa980cd43119
+          /tmp/google-clang/clang-r614150/bin/clang --version
+          echo "[PASS] Exact Google LLVM23 available inside ServerHive sandbox"
       - name: Generate the SAME OEM mondrian configuration as main kernel CI
         run: |
           set -euo pipefail
