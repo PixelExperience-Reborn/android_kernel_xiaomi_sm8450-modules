@@ -51,9 +51,17 @@ jobs:
           python3 tools/qualify_xiaomi_garnet_display.py \
             --kernel kernel --xiaomi-display xiaomi-display \
             --out "$RUNNER_TEMP/garnet-source"
-      - name: Install signed build prerequisites
+      - name: Install signed build prerequisites including target C sysroot
         timeout-minutes: 13
-        run: bash tools/install_ci_prerequisites.sh
+        env:
+          PE_REQUIRE_ARM64_LINK_SYSROOT: '1'
+        run: |
+          set -euo pipefail
+          bash tools/install_ci_prerequisites.sh
+          command -v aarch64-linux-gnu-gcc
+          test -s /usr/aarch64-linux-gnu/include/stdio.h
+          test -s /usr/aarch64-linux-gnu/lib/libc.a
+          test -s /usr/aarch64-linux-gnu/lib/crt1.o
       - uses: actions/cache/restore@v4
         id: clang-cache
         with:
@@ -96,6 +104,19 @@ jobs:
               -Werror -c -x assembler -o /dev/null -
           "$ko/scripts/basic/cc-wrapper" clang --target=aarch64-linux-gnu \
             -Werror -fsanitize=shadow-call-stack -ffixed-x18 -c -x c /dev/null -o /dev/null
+          # Match Makefile's target/prefix/GCC discovery flags; check both
+          # userspace link modes before Kconfig, without changing any symbol.
+          prefix="$(dirname "$(command -v aarch64-linux-gnu-elfedit)")"
+          gcc_root="$(realpath "$prefix/..")"
+          link_flags=(--target=aarch64-linux-gnu "--prefix=$prefix/aarch64-linux-gnu" "--gcc-toolchain=$gcc_root" -Werror=unknown-warning-option)
+          for mode in dynamic static; do
+            extra=()
+            if [[ "$mode" == static ]]; then extra=(-static); fi
+            printf '%s\n' '#include <stdio.h>' 'int main(void) { printf(""); return 0; }' | \
+              "$ko/scripts/basic/cc-wrapper" clang "${link_flags[@]}" "${extra[@]}" -x c - -o "$RUNNER_TEMP/probe-$mode"
+            readelf -h "$RUNNER_TEMP/probe-$mode" | grep -F AArch64
+            bash kernel/scripts/cc-can-link.sh "$ko/scripts/basic/cc-wrapper" clang "${link_flags[@]}" "${extra[@]}"
+          done
           cp "$baseline/_temp/mondrian-out/.config" "$ko/.config"
           cp "$baseline/_temp/mondrian-out/Module.symvers" "$ko/Module.symvers"
           echo "515a9b992035c43e7c78d548287fb00d263dbad3c88e5392ab1bc043105870a3  $ko/.config" | sha256sum -c -
@@ -106,6 +127,8 @@ jobs:
             diff -u "$baseline/_temp/mondrian-out/.config" "$ko/.config" || true
             exit 1
           fi
+          grep -Fx "CONFIG_CC_CAN_LINK=y" "$ko/.config"
+          grep -Fx "CONFIG_CC_CAN_LINK_STATIC=y" "$ko/.config"
           python3 tools/verify_mondrian_kernel_hardening.py \
             --generated-config "$ko/.config" --out "$RUNNER_TEMP/garnet-hardening.json"
           make -C kernel O="$ko" -j3 modules_prepare

@@ -5,6 +5,11 @@
 set -euo pipefail
 
 packages=(bc bison flex make gcc device-tree-compiler libssl-dev libelf-dev dwarves binutils-aarch64-linux-gnu kmod)
+# Exact config replay must reproduce CC_CAN_LINK and CC_CAN_LINK_STATIC,
+# which probe a real target userspace C program (not a freestanding object).
+if [[ "${PE_REQUIRE_ARM64_LINK_SYSROOT:-0}" == 1 ]]; then
+  packages+=(gcc-aarch64-linux-gnu libc6-dev-arm64-cross)
+fi
 
 write_sources() {
   local archive="$1" security="$2"
