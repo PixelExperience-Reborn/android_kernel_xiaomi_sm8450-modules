@@ -122,6 +122,92 @@ The inventory now recognizes sysfs-only consumers and fortified
 Bionic I/O imports, including libgf_hal.so. It still does not infer
 call arguments from strings.
 
+## Historical stock Composer and actual ioctl calls
+
+A separate mondrian stock dump contains the vendor partition, unlike the
+available OS3.0.5.0.VMNMIXM dump, which has no vendor tree. Reference:
+[gm-stuffs/poco_mondrian_dump at 08d057d](https://github.com/gm-stuffs/poco_mondrian_dump/tree/08d057dfd16a6b2c8520100290d4b1807b03ce86).
+The branch describes the Android 14 V816.0.8.0.UMNMIXM release; its
+vendor/build.prop reports mondrian, V816.0.8.0.UMNMIXM and vendor Android
+12. This is historical comparison data, not authenticated HyperOS 3
+evidence and not a selected AOSP 17 vendor tree.
+
+The ARM64 DisplayDeviceManager library (vendor/lib64/libMiDispDevManager.so,
+Git blob 7a1c4e3d9165e1b9068df1138b5c13117c3b081b) opens
+/dev/mi_display/disp_feature. Resolve BL through the ELF PLT and
+.rela.plt and inspect MOVZ/MOVK into w1 immediately before each ioctl.
+All nine observed LP64 requests match the pinned Xiaomi mi_disp.h
+declarations; the native FOD shim supports only three of these nine.
+A separate native LHBM request 0x400c440e is not among these observed calls.
+
+| Operation | ioctl | ELF call VA | Native FOD shim supports |
+|---|---|---|---|
+| SET_FEATURE | 0xc0304401 | 0x21f0 | no |
+| SET_DOZE_BRIGHTNESS | 0x400c4402 | 0x22b0 | yes |
+| GET_DOZE_BRIGHTNESS | 0x800c4403 | 0x234c | no |
+| GET_PANEL_INFO | 0xc0184404 | 0x240c | no |
+| GET_WP_INFO | 0xc0184405 | 0x24cc | no |
+| GET_FPS | 0x800c4406 | 0x258c | no |
+| REGISTER_EVENT | 0x400c4407 | 0x26cc | yes |
+| DEREGISTER_EVENT | 0x400c4408 | 0x27b0 | yes |
+| WRITE_DSI_CMD | 0x40284409 | 0x2804 | no |
+
+The historical HWC uses vendor/lib64/libsdedrm.so (Git blob
+b98233ab5d4bdf7c6aea56aab6bc552fac58b2e5). In DRMConnector::SetROI
+(VA 0x25c14) and DRMCrtc::SetROI (VA 0x37644), the count is checked
+against four, 36 bytes of ROI storage are initialized, and four
+16-bit coordinates per rectangle are written with 8-byte stride.
+The pointer to the ROI is passed as the atomic property value (connector
+tail call 0x25da0, CRTC tail call 0x37998). This is not an ioctl with
+an encoded ROI length, nor a DRM blob that carries a length.
+
+The corresponding Xiaomi SDE consumer copies its 36-byte ROI type;
+PE Qualcomm unconditionally copies its 72-byte ROI type for the
+non-null pointer. A legacy producer does not supply the additional
+flags/SPR fields. Reading beyond the historical ABI or interpreting
+adjacent memory as flags is not a valid compatibility strategy.
+
+In vendor/lib64/libsdmcore.so (Git blob
+20116f0b2c596956e066066c480ebc0faaa6736b), HWPeripheralDRM::SetDestScalarData
+(VA 0xbbc6c) uses a 24-byte scaler stride (w25=0x18 at 0xbbcb0)
+and passes the constructed object via a virtual DRM operation at
+0xbbe48. This is consistent with the Xiaomi 24-byte scaler entry;
+it does not establish the complete current HWC ABI or prove every
+optional property is exercised by the panel.
+
+Independent local host LP64 C static assertions against the extracted
+declarations verified the nine ioctl encodings and six SDE structure
+sizes plus two offsets (17 assertions). This was not a full upstream
+header compilation, a driver build or a hardware test.
+
+## Native AOSP 17 FOD transport requirement
+
+The historical maintainer UDFPS handler
+[LF52406, 6e0022f, UdfpsHandler.cpp](https://github.com/LF52406/mondrian_android_device_xiaomi_sm8450-common/blob/6e0022f5100e09ac97980095b6ed8528f4ff823f/udfps/UdfpsHandler.cpp)
+reads the 12-byte event header first and the payload in a second read.
+It is an existing comparative reference only (Lineage-derived), not
+code for import. This exact pattern is incompatible with the original
+Xiaomi mi_disp_read behavior for a queued 16-byte FOD record, which
+returns zero for the initial short read and requeues the record.
+
+For the independently implemented PE-Reborn userspace FOD transport,
+subscribe only to primary FOD and read a complete 16-byte record at
+once. Both currently inspected kernel implementations can deliver this
+record. Validate display id, event type, length and payload before
+dispatching, serialize cancellation/finger-up against late READY, and
+handle interrupted/nonblocking reads and teardown without spinning.
+A future implementation must also verify actual HAL/service integration
+and wake gesture timing. Do not import the prior UDFPS handler or
+change the candidate's generic event queue solely to accommodate it.
+
+This evidence favors the original Xiaomi candidate for historical stock
+Display ABI. It does not approve replacing the current driver: the
+target HyperOS 3 HWC, actual stock FOD event consumer and runtime
+calibration/panel behavior remain unverified. Obtain the exact selected
+firmware vendor partition (or Composer, libsdedrm, libsdmcore,
+libMiDispDevManager and actual FOD consumer from that same image) before
+choosing the final production driver or changing the queue.
+
 ## Next evidence: original vendor HAL, not another ROM
 
 Use the extracted vendor partition of an independently sourced, verified
