@@ -1,0 +1,60 @@
+diff --git a/drivers/platform/msm/gsi/gsihal/gsihal_reg.c b/drivers/platform/msm/gsi/gsihal/gsihal_reg.c
+index 803d2159..5c6bff97 100644
+--- a/drivers/platform/msm/gsi/gsihal/gsihal_reg.c
++++ b/drivers/platform/msm/gsi/gsihal/gsihal_reg.c
+@@ -2309,7 +2309,7 @@ EXPORT_SYMBOL(gsihal_get_reg_nk_ofst);
+ *	array size according to the
+ *	GSI version.
+ */
+-u32 gsihal_get_bit_map_array_size()
++u32 gsihal_get_bit_map_array_size(void)
+ {
+ 	return GSI_CH_BIT_MAP_ARR_SIZE;
+ }
+@@ -2517,7 +2517,7 @@ bool gsihal_check_ring_length_valid(u32 r_len, u32 elem_size)
+ /*
+  * Get mask for GP_int1
+  */
+-u32 gsihal_get_glob_irq_en_gp_int1_mask()
++u32 gsihal_get_glob_irq_en_gp_int1_mask(void)
+ {
+ 	return GSI_EE_n_CNTXT_GLOB_IRQ_EN_GP_INT1_BMSK;
+ }
+diff --git a/drivers/platform/msm/ipa/ipa_v3/ipa_stats.c b/drivers/platform/msm/ipa/ipa_v3/ipa_stats.c
+index 7e93fa91..dbc2888f 100644
+--- a/drivers/platform/msm/ipa/ipa_v3/ipa_stats.c
++++ b/drivers/platform/msm/ipa/ipa_v3/ipa_stats.c
+@@ -125,7 +125,7 @@ static int ipa_stats_ioctl_open(struct inode *inode, struct file *filp)
+ 	return 0;
+ }
+ 
+-static bool ipa_stats_struct_mismatch()
++static bool ipa_stats_struct_mismatch(void)
+ {
+ 	if (IPA_LNX_EACH_INST_ALLOC_INFO_STRUCT_LEN_INT != IPA_LNX_EACH_INST_ALLOC_INFO_STRUCT_LEN ||
+ 		IPA_LNX_STATS_ALL_INFO_STRUCT_LEN_INT != IPA_LNX_STATS_ALL_INFO_STRUCT_LEN ||
+@@ -1878,7 +1878,7 @@ dev_alloc_err:
+ 	return -ENODEV;
+ }
+ 
+-int ipa_spearhead_stats_init()
++int ipa_spearhead_stats_init(void)
+ {
+ 	int ret;
+ 
+diff --git a/drivers/platform/msm/ipa/ipa_v3/rmnet_ipa.c b/drivers/platform/msm/ipa/ipa_v3/rmnet_ipa.c
+index 5d66a694..9aed4460 100644
+--- a/drivers/platform/msm/ipa/ipa_v3/rmnet_ipa.c
++++ b/drivers/platform/msm/ipa/ipa_v3/rmnet_ipa.c
+@@ -733,8 +733,9 @@ static void ipa3_copy_qmi_flt_rule_ex(
+ 	 */
+ 	flt_spec_ptr = (struct ipa_filter_spec_ex_type_v01 *) flt_spec_ptr_void;
+ 
+-	q6_ul_flt_rule_ptr->ip = flt_spec_ptr->ip_type;
+-	q6_ul_flt_rule_ptr->action = flt_spec_ptr->filter_action;
++	q6_ul_flt_rule_ptr->ip = (enum ipa_ip_type)flt_spec_ptr->ip_type;
++	q6_ul_flt_rule_ptr->action =
++		(enum ipa_flt_action)flt_spec_ptr->filter_action;
+ 	if (flt_spec_ptr->is_routing_table_index_valid == true)
+ 		q6_ul_flt_rule_ptr->rt_tbl_idx =
+ 		flt_spec_ptr->route_table_index;

@@ -21,11 +21,11 @@ PINS = {
     ),
     "upstream/qualcomm/video": (
         "https://git.codelinaro.org/clo/la/platform/vendor/opensource/video-driver.git",
-        "707fcdb08626667663d13cfceeb2d9dfe92893e3",
+        "8608fb23bcb1cbffdc96b33eea3a79cb0228b72f",
         {
-            "Kbuild": "c7538fa337f94d89969eefa72f5f5efa35296fb5",
+            "Kbuild": "b4ab16ddce97f2d4d0b44ce025397168bd2810b5",
             "config/waipio_video.conf": "227440fb21bf6ae5723daccb10c682ffb86030c9",
-            "driver/vidc/inc/msm_vidc_dt.h": "6e05636eec0f248f6b481b483ba5d44e21c68328",
+            "driver/vidc/inc/msm_vidc_dt.h": "d0e31aa49b2d66ccf3c6e542a6c31153007c66cd",
         },
     ),
 }

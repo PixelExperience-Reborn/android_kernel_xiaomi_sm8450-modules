@@ -1,0 +1,59 @@
+diff --git a/core/Kbuild b/core/Kbuild
+index e041a73..38d0478 100644
+--- a/core/Kbuild
++++ b/core/Kbuild
+@@ -6,6 +6,9 @@ ifeq ($(CONFIG_ARCH_SDXNIGHTJAR), y)
+ ccflags-y	+= -DRMNET_TRACE_INCLUDE_LE
+ endif
+ 
++# Trace headers use TRACE_INCLUDE_PATH . relative to this directory.
++ccflags-y	+= -I$(src)
++
+ obj-m += rmnet_core.o
+ 
+ #core sources
+diff --git a/core/dfc.h b/core/dfc.h
+index ba7fd31..db02590 100644
+--- a/core/dfc.h
++++ b/core/dfc.h
+@@ -13,9 +13,9 @@
+ #undef TRACE_SYSTEM
+ #define TRACE_SYSTEM dfc
+ #undef TRACE_INCLUDE_PATH
+-#define TRACE_INCLUDE_PATH ../../../../vendor/qcom/opensource/datarmnet/core
++#define TRACE_INCLUDE_PATH .
+ #ifdef RMNET_LA_PLATFORM
+-#define TRACE_INCLUDE_PATH ../../../../vendor/qcom/opensource/datarmnet/core
++#define TRACE_INCLUDE_PATH .
+ #elif RMNET_TRACE_INCLUDE_LE
+ #define TRACE_INCLUDE_PATH ../../../../../../../datarmnet/core
+ #else
+diff --git a/core/rmnet_trace.h b/core/rmnet_trace.h
+index 488345e..9593842 100644
+--- a/core/rmnet_trace.h
++++ b/core/rmnet_trace.h
+@@ -12,7 +12,7 @@
+ #define TRACE_INCLUDE_PATH ../../../../../../../src/datarmnet/core
+ #endif /* endif LINUX_VERSION_CODE < KERNEL_VERSION(5,5,0) */
+ #else
+-#define TRACE_INCLUDE_PATH ../../../../vendor/qcom/opensource/datarmnet/core
++#define TRACE_INCLUDE_PATH .
+ #endif
+ #define TRACE_INCLUDE_FILE rmnet_trace
+ 
+diff --git a/core/wda.h b/core/wda.h
+index d510cfb..94076ea 100644
+--- a/core/wda.h
++++ b/core/wda.h
+@@ -5,9 +5,9 @@
+ #undef TRACE_SYSTEM
+ #define TRACE_SYSTEM wda
+ #undef TRACE_INCLUDE_PATH
+-#define TRACE_INCLUDE_PATH ../../../../vendor/qcom/opensource/datarmnet/core
++#define TRACE_INCLUDE_PATH .
+ #ifdef RMNET_LA_PLATFORM
+-#define TRACE_INCLUDE_PATH ../../../../vendor/qcom/opensource/datarmnet/core
++#define TRACE_INCLUDE_PATH .
+ #elif RMNET_TRACE_INCLUDE_LE
+ #define TRACE_INCLUDE_PATH ../../../../../../../datarmnet/core
+ #else

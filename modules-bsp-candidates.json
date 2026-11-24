@@ -132,27 +132,27 @@
   "qualcomm_official_candidates": {
     "mmrm": {
       "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/mmrm-driver.git",
-      "tag": "VIDEO.LA.2.0.r1-10200-WAIPIO.0",
-      "commit_sha": "41774fa5be3d34ba35c2f929744f01c4494e7a99",
-      "status": "official_source_compiled_with_oem_kernel_llvm23_ci_43088150435"
+      "tag": "VIDEO.LA.2.0.r1-03100-WAIPIO.0",
+      "commit_sha": "69e304b713271a6ee70ecdae9c97d9a7c9f0926f",
+      "status": "selected_release_matching_xiaomi_5_10_81_baseline"
     },
     "display": {
       "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/display-drivers.git",
-      "tag": "DISPLAY.LA.2.0.r1-13000-WAIPIO.0",
-      "commit_sha": "8889165ca06c36c2240d702494da7527941d38b1",
-      "status": "source_candidate_no_abi_qualification"
+      "tag": "DISPLAY.LA.2.0.r1-05500-WAIPIO.0",
+      "commit_sha": "dcaec350bd6897d4c11c9fb3351ee751c8549598",
+      "status": "reference_only_xiaomi_display_selected_instead"
     },
     "camera": {
       "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/camera-kernel.git",
-      "tag": "CAMERA.LA.2.0.r1-11800-WAIPIO.0",
-      "commit_sha": "195bbfdc0a370dd61902b8039358cb9b14227361",
-      "status": "source_candidate_no_abi_qualification"
+      "tag": "CAMERA.LA.2.0.r1-04400-WAIPIO.0",
+      "commit_sha": "2180be9a14647c2356bfae5f7080fbb7d544753c",
+      "status": "reference_only_xiaomi_camera_selected_instead"
     },
     "video": {
       "url": "https://git.codelinaro.org/clo/la/platform/vendor/opensource/video-driver.git",
-      "tag": "VIDEO.LA.2.0.r1-10200-WAIPIO.0",
-      "commit_sha": "707fcdb08626667663d13cfceeb2d9dfe92893e3",
-      "status": "source_candidate_no_abi_qualification"
+      "tag": "VIDEO.LA.2.0.r1-03100-WAIPIO.0",
+      "commit_sha": "8608fb23bcb1cbffdc96b33eea3a79cb0228b72f",
+      "status": "selected_release_matching_xiaomi_5_10_81_baseline"
     }
   },
   "wlan_runtime_closure": {

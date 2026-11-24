@@ -1,4 +1,4 @@
-name: Qualify coherent mondrian OEM Image, Display, WLAN, MMRM, Camera, Audio and Video
+name: Qualify coherent mondrian OEM Image, Display, WLAN, MMRM, Camera, Audio, Video, IPA/RMNET and EVA
 
 on:
   # One trusted bringup push qualifies the existing full OEM CI on ServerHive.
@@ -50,6 +50,8 @@ jobs:
           python3 tools/verify_oem_wlan.py
           python3 tools/apply_oem_wlan_fix.py
           python3 tools/verify_qcom_mmrm.py
+          python3 tools/verify_qualcomm_data_eva_sources.py
+          bash -n tools/build_mondrian_data_eva.sh
           bash -n tools/install_ci_prerequisites.sh
           bash -n tools/prepare_mondrian_lto_resources.sh
           bash -n tools/prepare_mondrian_lto_linker.sh
@@ -449,6 +451,9 @@ jobs:
       - name: Build Xiaomi Qualcomm Audio, AW882xx and Qualcomm VIDC against exact OEM kernel
         if: ${{ !((github.event_name == 'workflow_dispatch' && inputs.scope == 'display') || (github.event_name == 'push' && contains(github.event.head_commit.message || '', '[xiaomi-display-only]'))) }}
         run: bash tools/build_mondrian_audio_video.sh
+      - name: Build Qualcomm WAIPIO 11900 IPA/GSI, RMNET core+ext and EVA against exact OEM kernel
+        if: ${{ !((github.event_name == 'workflow_dispatch' && inputs.scope == 'display') || (github.event_name == 'push' && contains(github.event.head_commit.message || '', '[xiaomi-display-only]'))) }}
+        run: bash tools/build_mondrian_data_eva.sh
       - name: Verify WLAN/MMRM/Display/Camera/Audio/Video and critical OEM module dependency closures
         if: ${{ !((github.event_name == 'workflow_dispatch' && inputs.scope == 'display') || (github.event_name == 'push' && contains(github.event.head_commit.message || '', '[xiaomi-display-only]'))) }}
         run: |
@@ -675,6 +680,9 @@ jobs:
             upstream/qualcomm/video/msm_video.ko
             ${{ runner.temp }}/mondrian-media-*
             ${{ runner.temp }}/media-abi/
+            ${{ runner.temp }}/mondrian-qcom-*.log
+            ${{ runner.temp }}/qcom-*-patch.json
+            ${{ runner.temp }}/qcom-data-eva-abi/
             ${{ runner.temp }}/mondrian-camera-ois-power-evidence.json
             ${{ runner.temp }}/camera-oem-build.log
             ${{ runner.temp }}/camera-clang23-fix-evidence.json

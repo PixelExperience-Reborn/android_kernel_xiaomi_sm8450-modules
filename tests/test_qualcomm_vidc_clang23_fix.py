@@ -29,7 +29,7 @@ class VideoDeclarationTests(unittest.TestCase):
     def test_mmrm_descriptor_initialized_without_changing_registration(self):
         path = "driver/vidc/src/venus_hfi.c"
         blob, pairs = fix.PATCHES[path]
-        self.assertEqual(blob, "0b167473b05195e8e8a35b0bb5a0fd3dec84d331")
+        self.assertEqual(blob, "920b54edf56fb5d07dd49d0a9b8d71e140d1feb7")
         self.assertEqual(pairs, ((
             b"\t\tstruct mmrm_client_desc desc;\n",
             b"\t\tstruct mmrm_client_desc desc = { 0 };\n",

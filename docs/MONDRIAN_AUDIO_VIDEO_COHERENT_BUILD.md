@@ -11,8 +11,14 @@ and the same OEM configuration, vmlinux and Module.symvers.
   mondrian I2C 0x34/0x35 and MI2S2 factory pinout. The original Xiaomi Kbuild and
   7 source blobs are pinned, with only 2 reviewed LLVM23 QoS prototype fixes.
   No unrelated donor DTS, FM route, FM HAL or ROM source is introduced.
-- Video: official Qualcomm CodeLinaro video-driver, VIDEO.LA.2.0.r1-10200-WAIPIO.0,
-  `707fcdb08626667663d13cfceeb2d9dfe92893e3`, same release as the present MMRM driver.
+- Video: official Qualcomm CodeLinaro video-driver, VIDEO.LA.2.0.r1-03100-WAIPIO.0,
+  `8608fb23bcb1cbffdc96b33eea3a79cb0228b72f` (2022-03-09), with MMRM
+  `69e304b713271a6ee70ecdae9c97d9a7c9f0926f` from the same tag. This is the
+  video image referenced by LA.VENDOR.1.0.r1-11900-WAIPIO.0, the Qualcomm
+  release whose KERNEL.PLATFORM.1.0.r1-07800 msm-5.10 (5.10.81) is the base of
+  Xiaomi mondrian-s-oss. The previous pins (`707fcdb`, May 2024, and MMRM
+  `41774fa`) came from later releases whose tag numbers only coincidentally
+  resembled 11900. The same 18 LLVM23 declaration fixes apply to 8608fb2.
   WAIPIO/IRIS2 is selected for this external build; kernel config unchanged.
 - Both source pins are actual Gitlinks; original Git blob IDs are checked.
   Compiled media modules are checked by the existing AArch64/vermagic gate

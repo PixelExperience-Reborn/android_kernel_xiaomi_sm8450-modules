@@ -1,0 +1,55 @@
+diff --git a/drivers/platform/msm/Kbuild b/drivers/platform/msm/Kbuild
+index 7814f829..316fc064 100644
+--- a/drivers/platform/msm/Kbuild
++++ b/drivers/platform/msm/Kbuild
+@@ -1,4 +1,6 @@
+ # SPDX-License-Identifier: GPL-2.0-only
++# External-module builds outside the Android tree pass DATAIPA_ROOT.
++DATAIPA_ROOT ?= $(srctree)/../../vendor/qcom/opensource/dataipa
+ DATAIPADRVTOP = $(srctree)/techpack/dataipa/drivers/platform/msm
+ 
+ #MSMs - GKI
+@@ -17,12 +19,12 @@ endif
+ 
+ #MSM - Vendor SI
+ ifeq ($(CONFIG_ARCH_WAIPIO), y)
+-DATAIPADRVTOP = $(srctree)/../../vendor/qcom/opensource/dataipa/drivers/platform/msm
+-LINUXINCLUDE    += -include $(srctree)/../../vendor/qcom/opensource/dataipa/config/dataipa_vendor.h
+-include $(srctree)/../../vendor/qcom/opensource/dataipa/config/dataipa_GKI.conf
++DATAIPADRVTOP = $(DATAIPA_ROOT)/drivers/platform/msm
++LINUXINCLUDE    += -include $(DATAIPA_ROOT)/config/dataipa_vendor.h
++include $(DATAIPA_ROOT)/config/dataipa_GKI.conf
+ ifeq ($(CONFIG_LOCALVERSION), "-gki-consolidate")
+-include $(srctree)/../../vendor/qcom/opensource/dataipa/config/dataipa_debug.conf
+-LINUXINCLUDE    += -include $(srctree)/../../vendor/qcom/opensource/dataipa/config/dataipa_debug.h
++include $(DATAIPA_ROOT)/config/dataipa_debug.conf
++LINUXINCLUDE    += -include $(DATAIPA_ROOT)/config/dataipa_debug.h
+ endif
+ endif
+ 
+diff --git a/drivers/platform/msm/ipa/ipa_clients/rndis_ipa_trace.h b/drivers/platform/msm/ipa/ipa_clients/rndis_ipa_trace.h
+index 9672cddd..c37aec12 100644
+--- a/drivers/platform/msm/ipa/ipa_clients/rndis_ipa_trace.h
++++ b/drivers/platform/msm/ipa/ipa_clients/rndis_ipa_trace.h
+@@ -71,7 +71,7 @@ TRACE_EVENT(
+ /* This part must be outside protection */
+ #undef TRACE_INCLUDE_PATH
+ #ifdef CONFIG_IPA_VENDOR_DLKM
+-#define TRACE_INCLUDE_PATH ../../../../vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_clients
++#define TRACE_INCLUDE_PATH .
+ #else
+ #define TRACE_INCLUDE_PATH ../../techpack/dataipa/drivers/platform/msm/ipa/ipa_clients
+ #endif
+diff --git a/drivers/platform/msm/ipa/ipa_v3/ipa_trace.h b/drivers/platform/msm/ipa/ipa_v3/ipa_trace.h
+index 7a797f27..0346ae99 100644
+--- a/drivers/platform/msm/ipa/ipa_v3/ipa_trace.h
++++ b/drivers/platform/msm/ipa/ipa_v3/ipa_trace.h
+@@ -302,7 +302,7 @@ TRACE_EVENT(
+ /* This part must be outside protection */
+ #undef TRACE_INCLUDE_PATH
+ #ifdef CONFIG_IPA_VENDOR_DLKM
+-#define TRACE_INCLUDE_PATH ../../../../vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3
++#define TRACE_INCLUDE_PATH .
+ #else
+ #define TRACE_INCLUDE_PATH ../../techpack/dataipa/drivers/platform/msm/ipa/ipa_v3
+ #endif

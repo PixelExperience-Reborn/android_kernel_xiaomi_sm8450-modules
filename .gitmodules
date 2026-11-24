@@ -13,3 +13,15 @@
 [submodule "upstream/qualcomm/video"]
 	path = upstream/qualcomm/video
 	url = https://git.codelinaro.org/clo/la/platform/vendor/opensource/video-driver.git
+[submodule "upstream/qualcomm/dataipa"]
+	path = upstream/qualcomm/dataipa
+	url = https://git.codelinaro.org/clo/la/platform/vendor/opensource/dataipa.git
+[submodule "upstream/qualcomm/datarmnet"]
+	path = upstream/qualcomm/datarmnet
+	url = https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/datarmnet.git
+[submodule "upstream/qualcomm/datarmnet-ext"]
+	path = upstream/qualcomm/datarmnet-ext
+	url = https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/datarmnet-ext.git
+[submodule "upstream/qualcomm/eva"]
+	path = upstream/qualcomm/eva
+	url = https://git.codelinaro.org/clo/la/platform/vendor/opensource/eva-kernel.git

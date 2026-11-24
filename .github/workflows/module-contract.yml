@@ -28,6 +28,12 @@ jobs:
           python3 tools/verify_oem_wlan.py
           python3 tools/apply_oem_wlan_fix.py
           python3 tools/verify_qcom_mmrm.py
+          python3 tools/verify_qualcomm_data_eva_sources.py
+          for project in dataipa:dataipa datarmnet:datarmnet datarmnet-ext:datarmnet-ext eva-kernel:eva; do
+            python3 tools/apply_qualcomm_patch_series.py --check \
+              --project "${project%%:*}" --source "upstream/qualcomm/${project#*:}"
+          done
+          bash -n tools/build_mondrian_data_eva.sh
           bash -n tools/install_ci_prerequisites.sh
           bash -n tools/prepare_mondrian_lto_resources.sh
           bash -n tools/prepare_mondrian_lto_linker.sh

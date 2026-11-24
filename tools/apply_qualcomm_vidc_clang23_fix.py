@@ -12,13 +12,13 @@ from pathlib import Path
 import re
 import subprocess
 
-COMMIT = "707fcdb08626667663d13cfceeb2d9dfe92893e3"
+COMMIT = "8608fb23bcb1cbffdc96b33eea3a79cb0228b72f"
 DEBUG_HEADER = "driver/vidc/inc/msm_vidc_debug.h"
 DEBUG_HEADER_BLOB = "89f61f62a61662bfd983c10ddaaa25ce4887880e"
 DEBUG_DECL = b"struct dentry *msm_vidc_debugfs_init_drv(void);"
 PATCHES = {
     "driver/vidc/inc/msm_vidc_driver.h": (
-        "4aff5f019c905d3e7f5aa38f4ae792b29421379f",
+        "3c0dcdc7d921d83977b9a47036e23ef82db79e4e",
         (
             (b"static inline is_decode_session(", b"static inline int is_decode_session("),
             (b"static inline is_encode_session(", b"static inline int is_encode_session("),
@@ -37,19 +37,19 @@ PATCHES = {
         ),
     ),
     "driver/vidc/src/msm_vdec.c": (
-        "fc82dbf21259113a32a5b8934414dcd360a8783e",
+        "8723e1cd6bc7e411e07a8b1e76f9a93d874847ef",
         (
             (b"static msm_vdec_alloc_and_queue_additional_dpb_buffers(", b"static int msm_vdec_alloc_and_queue_additional_dpb_buffers("),
         ),
     ),
     "driver/vidc/src/msm_vidc_control.c": (
-        "1db2dfd306cd82d3ae529f2a1aba53072372a604",
+        "cd68f364aeffad9fd4d063835662963039d40789",
         (
             (b"static msm_venc_set_csc_coeff(", b"static int msm_venc_set_csc_coeff("),
         ),
     ),
     "driver/vidc/src/msm_vidc_debug.c": (
-        "6d3951a59855617731f509f1f3471b6255e891c3",
+        "3f476ab1ad550e6344f8c473eaa538036f6489de",
         (
             (b"struct dentry* msm_vidc_debugfs_init_drv()\n", b"struct dentry* msm_vidc_debugfs_init_drv(void)\n"),
         ),
@@ -58,7 +58,7 @@ PATCHES = {
     # Zero initialization preserves every existing field assignment,
     # name copy and MMRM registration, while initializing the whole struct.
     "driver/vidc/src/venus_hfi.c": (
-        "0b167473b05195e8e8a35b0bb5a0fd3dec84d331",
+        "920b54edf56fb5d07dd49d0a9b8d71e140d1feb7",
         (
             (b"\t\tstruct mmrm_client_desc desc;\n", b"\t\tstruct mmrm_client_desc desc = { 0 };\n"),
         ),
