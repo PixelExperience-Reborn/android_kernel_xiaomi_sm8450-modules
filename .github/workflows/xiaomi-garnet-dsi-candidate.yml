@@ -1,0 +1,103 @@
+name: Qualify Xiaomi mondrian DSI panel object (diagnostic only)
+
+on:
+  push:
+    branches:
+      - bringup/a17-mondrian-oem-bsp-20261111
+    paths:
+      - .github/workflows/xiaomi-garnet-dsi-candidate.yml
+      - tools/qualify_xiaomi_garnet_display.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mondrian-xiaomi-garnet-dsi-candidate
+  cancel-in-progress: false
+
+jobs:
+  dsi-object:
+    # No ServerHive reservation, vmlinux/Full LTO relink or production packaging.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: PixelExperience-Reborn/android_kernel_xiaomi_sm8450
+          ref: 2efda4cf1afa2a7098d5abd4806769903e181f73
+          path: kernel
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: MiCode/vendor_opensource_display-drivers
+          ref: bf0d5e23be5457001a18aa9dcd68cb17994ae36a
+          path: xiaomi-display
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: MiCode/vendor_qcom_proprietary_display-devicetree
+          ref: ab5bc7b921d3d4072ce11eecfde984382e3ec695
+          path: xiaomi-display-dt
+          persist-credentials: false
+      - name: Check Python and exact pristine source
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/qualify_xiaomi_garnet_display.py
+          python3 tools/qualify_xiaomi_garnet_display.py \
+            --kernel kernel --xiaomi-display xiaomi-display \
+            --out "$RUNNER_TEMP/garnet-source"
+      - name: Install signed build prerequisites
+        timeout-minutes: 13
+        run: bash tools/install_ci_prerequisites.sh
+      - uses: actions/cache/restore@v4
+        id: clang-cache
+        with:
+          path: /tmp/google-clang
+          key: mondrian-a17-clang-r614150-c9ed23e2ba198658b630d4b10e09fa980cd43119
+      - name: Fetch Google LLVM 23
+        if: steps.clang-cache.outputs.cache-hit != 'true'
+        run: bash kernel/tools/fetch_android_kernel_clang.sh /tmp/google-clang
+      - uses: actions/cache/save@v4
+        if: steps.clang-cache.outputs.cache-hit != 'true'
+        with:
+          path: /tmp/google-clang
+          key: mondrian-a17-clang-r614150-c9ed23e2ba198658b630d4b10e09fa980cd43119
+      - name: Prepare exact OEM configuration without linking vmlinux
+        run: |
+          set -euo pipefail
+          export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
+          export ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-gnu-
+          test "$(git -C /tmp/google-clang rev-parse HEAD)" = c9ed23e2ba198658b630d4b10e09fa980cd43119
+          ko="$RUNNER_TEMP/mondrian-out"
+          mkdir -p "$ko"
+          make -C kernel O="$ko" gki_defconfig
+          bash kernel/scripts/kconfig/merge_config.sh -m -r -O "$ko" \
+            "$ko/.config" kernel/arch/arm64/configs/vendor/mondrian_GKI.config \
+            tools/config/mondrian_gki_hardening.config
+          make -C kernel O="$ko" olddefconfig
+          python3 tools/verify_mondrian_kernel_hardening.py \
+            --generated-config "$ko/.config" --out "$RUNNER_TEMP/garnet-hardening.json"
+          make -C kernel O="$ko" -j3 modules_prepare
+      - name: Compile only Xiaomi DSI panel with actual OEM kernel headers
+        run: |
+          set -euo pipefail
+          python3 tools/qualify_xiaomi_garnet_display.py \
+            --kernel kernel --xiaomi-display xiaomi-display \
+            --xiaomi-display-dt xiaomi-display-dt --clang-root /tmp/google-clang \
+            --kernel-out "$RUNNER_TEMP/mondrian-out" \
+            --out "$RUNNER_TEMP/garnet-object" --objects-only
+          echo 'Candidate DSI object compiled; full module, userspace ABI and hardware are NOT qualified.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mondrian-xiaomi-garnet-dsi-diagnostic
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/garnet-source/source-evidence.json
+            ${{ runner.temp }}/garnet-object/
+            ${{ runner.temp }}/garnet-hardening.json
