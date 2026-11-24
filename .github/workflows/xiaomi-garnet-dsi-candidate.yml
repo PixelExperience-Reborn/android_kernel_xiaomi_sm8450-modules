@@ -1,4 +1,4 @@
-name: Qualify Xiaomi mondrian DSI panel object (diagnostic only)
+name: Qualify full Xiaomi Display against archived OEM symbols (diagnostic only)
 
 on:
   push:
@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: mondrian-xiaomi-garnet-dsi-candidate
@@ -18,7 +19,7 @@ concurrency:
 
 jobs:
   dsi-object:
-    # No ServerHive reservation, vmlinux/Full LTO relink or production packaging.
+    # No ServerHive reservation or vmlinux relink; candidate retains Full LTO.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -66,6 +67,13 @@ jobs:
         with:
           path: /tmp/google-clang
           key: mondrian-a17-clang-r614150-c9ed23e2ba198658b630d4b10e09fa980cd43119
+      - name: Download exact #131 OEM kernel and MMRM symbol evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: mondrian-coherent-oem-wlan-kmi-diagnostics
+          run-id: 45445498683
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/baseline131
       - name: Prepare exact OEM configuration without linking vmlinux
         run: |
           set -euo pipefail
@@ -74,27 +82,34 @@ jobs:
           test "$(git -C /tmp/google-clang rev-parse HEAD)" = c9ed23e2ba198658b630d4b10e09fa980cd43119
           ko="$RUNNER_TEMP/mondrian-out"
           mkdir -p "$ko"
-          make -C kernel O="$ko" gki_defconfig
-          bash kernel/scripts/kconfig/merge_config.sh -m -r -O "$ko" \
-            "$ko/.config" kernel/arch/arm64/configs/vendor/mondrian_GKI.config \
-            tools/config/mondrian_gki_hardening.config
+          baseline="$RUNNER_TEMP/baseline131"
+          cp "$baseline/_temp/mondrian-out/.config" "$ko/.config"
+          cp "$baseline/_temp/mondrian-out/Module.symvers" "$ko/Module.symvers"
+          echo "515a9b992035c43e7c78d548287fb00d263dbad3c88e5392ab1bc043105870a3  $ko/.config" | sha256sum -c -
+          echo "2191efa191b246a22c9e8631fd471447e53092d340b47b49698eed7cc65c4c29  $ko/Module.symvers" | sha256sum -c -
           make -C kernel O="$ko" olddefconfig
           python3 tools/verify_mondrian_kernel_hardening.py \
             --generated-config "$ko/.config" --out "$RUNNER_TEMP/garnet-hardening.json"
           make -C kernel O="$ko" -j3 modules_prepare
-      - name: Compile only Xiaomi DSI panel with actual OEM kernel headers
+          echo "515a9b992035c43e7c78d548287fb00d263dbad3c88e5392ab1bc043105870a3  $ko/.config" | sha256sum -c -
+      - name: Compile and MODPOST entire Xiaomi Display candidate against archived OEM symbols
         run: |
           set -euo pipefail
+          baseline="$RUNNER_TEMP/baseline131"
+          mmrm=$(find "$baseline" -path '*/upstream/qualcomm/mmrm/driver/Module.symvers' -type f)
+          test -f "$mmrm"
           python3 tools/qualify_xiaomi_garnet_display.py \
             --kernel kernel --xiaomi-display xiaomi-display \
             --xiaomi-display-dt xiaomi-display-dt --clang-root /tmp/google-clang \
             --kernel-out "$RUNNER_TEMP/mondrian-out" \
-            --out "$RUNNER_TEMP/garnet-object" --objects-only
-          echo 'Candidate DSI object compiled; full module, userspace ABI and hardware are NOT qualified.' >> "$GITHUB_STEP_SUMMARY"
+            --baseline-evidence "$baseline/_temp/display-abi-evidence.json" \
+            --mmrm-symvers "$mmrm" --build --replay-symbols \
+            --out "$RUNNER_TEMP/garnet-object"
+          echo 'Full Xiaomi module and imported CRCs checked using archived #131 symbols; no new vmlinux or hardware qualification.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: mondrian-xiaomi-garnet-dsi-diagnostic
+          name: mondrian-xiaomi-garnet-full-symbol-replay
           retention-days: 7
           if-no-files-found: warn
           path: |
