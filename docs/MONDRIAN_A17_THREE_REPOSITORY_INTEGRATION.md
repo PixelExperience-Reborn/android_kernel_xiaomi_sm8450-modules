@@ -11,7 +11,7 @@ reference **only**; no Lineage driver, DTS or ROM base is selected.
 | --- | --- |
 | Kernel: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450` | `2efda4cf1afa2a7098d5abd4806769903e181f73` |
 | Modules: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-modules` | current active bringup PR head, recorded by the CI run |
-| Devicetrees: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees` | `2550600f85a1981484d28c92da4b690eac23f62f` |
+| Devicetrees: `PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees` | `c6f47f9b8f9b7129d98b30e36beae8445fd2faa5` |
 | Xiaomi original kernel DT: `MiCode/kernel_devicetree` | `34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c` |
 | Xiaomi original Camera Kernel | `9ed4ce96d49c0759c6365627113c5f59c2407942` |
 | Xiaomi original Cape Camera platform | `a59a63bd498b94074c41357a466874b99aec62a8` |

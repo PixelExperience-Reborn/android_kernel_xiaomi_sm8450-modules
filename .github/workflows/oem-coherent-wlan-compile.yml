@@ -529,9 +529,12 @@ jobs:
           test "$(git -C device-tree rev-parse HEAD)" = "$PE_DT_SHA"
           test "$(git -C device-tree/upstream/xiaomi-dts rev-parse HEAD)" = 34e6cc7d832ed9c655b9d79bc3ffe1d625146b7c
           test "$(git -C device-tree/upstream/xiaomi-camera-platform rev-parse HEAD)" = a59a63bd498b94074c41357a466874b99aec62a8
+          test "$(git -C device-tree/upstream/qualcomm/audio-devicetree rev-parse HEAD)" = 50ccb9f0fb8c6a138a0946e81ae5beb700264fd1
+          test "$(git -C device-tree/upstream/qualcomm/video-devicetree rev-parse HEAD)" = 7c85d65ec51887baa2886c5a9df8223d0b0cb01b
           python3 -m venv "$RUNNER_TEMP/pe-bsp-dt-venv"
           "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" -m pip install --disable-pip-version-check lz4==4.4.5
           "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" -m unittest discover -s device-tree/tests -p 'test_mondrian_audio_fdt.py' -v
+          "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" -m unittest discover -s device-tree/tests -p 'test_mondrian_multimedia_dt.py' -v
           "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" device-tree/tools/build_oem_dtbo.py \
             --kernel kernel \
             --expected-kernel-commit "$PE_KERNEL_SHA" \
@@ -544,20 +547,54 @@ jobs:
           "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" device-tree/tools/build_mondrian_m11a.py \
             --kernel kernel --camera-build "$RUNNER_TEMP/mondrian-coherent-camera-platform" \
             --out "$RUNNER_TEMP/mondrian-coherent-m11a"
+          "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" device-tree/tools/build_mondrian_multimedia.py \
+            --kernel kernel --m11a-build "$RUNNER_TEMP/mondrian-coherent-m11a" \
+            --out "$RUNNER_TEMP/mondrian-coherent-multimedia"
+          "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" device-tree/tools/verify_dt_driver_coverage.py \
+            --dtb "$RUNNER_TEMP/mondrian-coherent-multimedia/cape-mondrian-full.dtb" \
+            --dtb "$RUNNER_TEMP/mondrian-coherent-multimedia/cape-v2-mondrian-full.dtb" \
+            --dtb "$RUNNER_TEMP/mondrian-coherent-multimedia/capep-mondrian-full.dtb" \
+            --kernel kernel \
+            --kernel-config "$RUNNER_TEMP/mondrian-out/.config" \
+            --module-source display=kernel/techpack/display \
+            --module-source xiaomi-audio=upstream/xiaomi-audio \
+            --module-source xiaomi-camera=xiaomi-camera-source \
+            --module-source xiaomi-wlan=upstream/xiaomi-wlan \
+            --module-source qcom-video=upstream/qualcomm/video \
+            --module-source qcom-mmrm=upstream/qualcomm/mmrm \
+            --module-source qcom-dataipa=upstream/qualcomm/dataipa \
+            --module-source qcom-datarmnet=upstream/qualcomm/datarmnet \
+            --module-source qcom-datarmnet-ext=upstream/qualcomm/datarmnet-ext \
+            --module-source qcom-eva=upstream/qualcomm/eva \
+            --out "$RUNNER_TEMP/mondrian-dt-driver-coverage.json"
           python3 - "$RUNNER_TEMP/mondrian-coherent-board/dtbo-diagnostic-evidence.json" \
             "$RUNNER_TEMP/mondrian-coherent-camera-platform/mondrian-camera-platform-diagnostic-evidence.json" \
             "$RUNNER_TEMP/mondrian-stage/mondrian-wlan-diagnostic-manifest.json" \
             "$RUNNER_TEMP/mondrian-coherent-m11a/mondrian-m11a-build.json" \
+            "$RUNNER_TEMP/mondrian-coherent-multimedia/mondrian-multimedia-build.json" \
+            "$RUNNER_TEMP/mondrian-dt-driver-coverage.json" \
             "$RUNNER_TEMP/mondrian-three-repo-diagnostic-evidence.json" <<'PY'
           import hashlib
           import json
           import pathlib
           import sys
-          board_path, camera_path, modules_path, display_path, output_path = map(pathlib.Path, sys.argv[1:])
+          (board_path, camera_path, modules_path, display_path,
+           multimedia_path, coverage_path, output_path) = map(pathlib.Path, sys.argv[1:])
           board, camera, modules = [json.loads(p.read_text()) for p in (board_path, camera_path, modules_path)]
           display = json.loads(display_path.read_text())
+          multimedia = json.loads(multimedia_path.read_text())
+          coverage = json.loads(coverage_path.read_text())
           kernel_sha = __import__("os").environ["PE_KERNEL_SHA"]
           bases = {"cape", "cape-v2", "capep"}
+          assert multimedia["kernel_commit"] == kernel_sha and set(multimedia["boards"]) == bases
+          assert multimedia["mmrm_dt_selected"] is False and multimedia["production_dtbo_approved"] is False
+          for variant in bases:
+              assert multimedia["boards"][variant]["input_sha256"] == display["boards"][variant]["sha256"]
+          assert coverage["failures"] == []
+          assert set(coverage["boards"]) == {b + "-mondrian-full.dtb" for b in bases}
+          for board_coverage in coverage["boards"].values():
+              statuses = {node["status"].split(":")[0] for node in board_coverage["nodes"].values()}
+              assert statuses <= {"kernel", "external", "consumed-by-enabled-driver", "allowlisted"}
           assert board["kernel"] == kernel_sha and camera["kernel_commit"] == kernel_sha
           assert display["kernel_commit"] == kernel_sha and set(display["boards"]) == bases
           assert modules["kernel_commit"] == kernel_sha
@@ -611,18 +648,30 @@ jobs:
               "goodix_primary_dsi_phandle_verified": True,
               "goodix_udfps_hardware_verified": False,
               "audio_video_kernel_compile_and_dependency_closure_verified": True,
+              "qualcomm_audio_devicetree_commit": multimedia["audio_devicetree_commit"],
+              "qualcomm_video_devicetree_commit": multimedia["video_devicetree_commit"],
+              "xiaomi_audio_overlay_blob": multimedia["xiaomi_audio_overlay_blob"],
+              "qualcomm_audio_video_dt_applied_on_all_three_bases": True,
+              "full_multimedia_dtb_sha256": {name: info["output_sha256"]
+                                             for name, info in multimedia["boards"].items()},
+              "mmrm_dt_selected": False,
+              "dt_enabled_device_driver_coverage_verified": True,
+              "dt_driver_coverage_summary": {name: info["summary"]
+                                             for name, info in coverage["boards"].items()},
               "audio_kernel_driver_verified": False,
               "video_hardware_verified": False,
               "audio_hal_and_hardware_verified": False,
               "production_boot_dtbo_and_modules_load_approved": False,
               "input_evidence_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-                                        for p in (board_path, camera_path, modules_path, display_path)},
+                                        for p in (board_path, camera_path, modules_path, display_path,
+                                                  multimedia_path, coverage_path)},
           }
           output_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
           print("[PASS] Exact Kernel + Camera/Audio OEM DTB and external module diagnostic closure")
           print("[PENDING] M11A panel-on commands and LHBM on hardware, UDFPS runtime, Audio/Video HAL and physical runtime, sensors, product images")
           PY
           echo "[PASS] Three-repository OEM Image/Modules/Camera/Audio-DTB diagnostic build" >> "$GITHUB_STEP_SUMMARY"
+          echo "[PASS] Qualcomm audio (Xiaomi overlay) and video DT applied; every enabled DT device has an enabled driver" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] Production boot/DTBO/modules.load and physical Camera/Audio/LHBM/UDFPS" >> "$GITHUB_STEP_SUMMARY"
       - name: Qualify exact mondrian camera EEPROM power and OIS non-enablement
         if: ${{ !((github.event_name == 'workflow_dispatch' && inputs.scope == 'display') || (github.event_name == 'push' && contains(github.event.head_commit.message || '', '[xiaomi-display-only]'))) }}
@@ -704,6 +753,8 @@ jobs:
             ${{ runner.temp }}/mondrian-coherent-camera-platform/mondrian-camera-platform-diagnostic-evidence.json
             ${{ runner.temp }}/mondrian-coherent-camera-platform/images/*.dtbo
             ${{ runner.temp }}/mondrian-coherent-m11a/
+            ${{ runner.temp }}/mondrian-coherent-multimedia/
+            ${{ runner.temp }}/mondrian-dt-driver-coverage.json
             ${{ runner.temp }}/mondrian-stage/diagnostic-sha256.txt
             ${{ runner.temp }}/mondrian-stage/mondrian-wlan-diagnostic-manifest.json
             ${{ runner.temp }}/mondrian-stage/lib/modules/**/modules.dep
