@@ -52,10 +52,17 @@ build() {
 build dataipa M="$dataipa/drivers/platform/msm" DATAIPA_ROOT="$dataipa"
 # RMNET core links to IPA only through the in-kernel ipa_fmwk exports.
 build datarmnet M="$rmnet/core"
-for ext in offload perf perf_tether shs wlan aps sch; do
+# Every ext module links to rmnet_core. rmnet_perf also uses
+# rmnet_perf_ingress_hook1 exported by rmnet_shs (Qualcomm perf/Makefile and
+# perf/Android.mk), so rmnet_shs is built first and its symbols are passed on.
+for ext in offload shs perf perf_tether wlan aps sch; do
+    symbols="$rmnet/core/Module.symvers"
+    if [[ "$ext" == perf ]]; then
+        symbols+=" $rmnet_ext/shs/Module.symvers"
+    fi
     build "datarmnet-ext-$ext" M="$rmnet_ext/$ext" \
         RMNET_CORE_INC_DIR="$rmnet/core" RMNET_CORE_PATH="$rmnet/core" \
-        KBUILD_EXTRA_SYMBOLS="$rmnet/core/Module.symvers"
+        KBUILD_EXTRA_SYMBOLS="$symbols"
 done
 # EVA uses the same Qualcomm MMRM symbols as Display, Camera and Video.
 build eva M="$eva" EVA_ROOT="$eva" KBUILD_EXTRA_SYMBOLS="$mmrm_sym"
@@ -86,10 +93,17 @@ for module in "${expected[@]}"; do
 done
 test "$(find "$dataipa" "$rmnet" "$rmnet_ext" "$eva" -type f -name '*.ko' | wc -l)" -eq "${#expected[@]}"
 # DT contracts the drivers must serve on mondrian.
-strings "$dataipa/drivers/platform/msm/ipa/ipam.ko" | grep -Fxq 'qcom,ipa'
-strings "$dataipa/drivers/platform/msm/ipa/ipam.ko" | grep -Fxq 'qcom,rmnet-ipa3'
-strings "$dataipa/drivers/platform/msm/gsi/gsim.ko" | grep -Fxq 'qcom,msm_gsi'
-strings "$eva/msm/msm-eva.ko" | grep -Fxq 'qcom,waipio-cvp'
+module_has_string() {
+    # Read every string first: `strings | grep -q` exits 141 under pipefail
+    # because grep stops at the first match while strings is still writing.
+    local text
+    text="$(strings "$1")"
+    grep -Fxq -- "$2" <<<"$text" || { echo "::error::$1 lacks $2"; return 1; }
+}
+module_has_string "$dataipa/drivers/platform/msm/ipa/ipam.ko" 'qcom,ipa'
+module_has_string "$dataipa/drivers/platform/msm/ipa/ipam.ko" 'qcom,rmnet-ipa3'
+module_has_string "$dataipa/drivers/platform/msm/gsi/gsim.ko" 'qcom,msm_gsi'
+module_has_string "$eva/msm/msm-eva.ko" 'qcom,waipio-cvp'
 
 mkdir -p "$RUNNER_TEMP/qcom-data-eva-abi"
 for module in "${expected[@]}"; do

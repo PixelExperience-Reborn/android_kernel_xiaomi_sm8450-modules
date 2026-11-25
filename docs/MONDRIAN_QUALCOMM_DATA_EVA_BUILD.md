@@ -14,6 +14,17 @@ series `git apply --check` first, only the listed files may change) →
 then appended to the existing dependency-closure step (depmod + modprobe
 dry run) as additional roots.
 
+Every datarmnet-ext module links to `rmnet_core`. `rmnet_perf` also uses
+`rmnet_perf_ingress_hook1`, exported by `rmnet_shs`; Qualcomm's
+`perf/Makefile` and `perf/Android.mk` declare that link, so `rmnet_shs` is
+built first and its `Module.symvers` is passed to `rmnet_perf`. A test reads
+those Qualcomm files and fails if the build order or symbols disagree.
+
+MODPOST only checks unresolved symbols when the kernel's own
+`Module.symvers` exists; without it, it prints "Unresolved symbol check will
+be entirely skipped". Local checks therefore use the `Module.symvers` and
+`.config` from the coherent CI run, never a bare `modules_prepare` tree.
+
 ## Reviewed patches
 
 | Patch | Why |

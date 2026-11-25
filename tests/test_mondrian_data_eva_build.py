@@ -83,6 +83,37 @@ class BuildContract(unittest.TestCase):
         self.assertNotIn("-Wno-error", BUILD)
         self.assertIn('grep -q \'ipa_fmwk_register_ipa\' "$kout/Module.symvers"', BUILD)
 
+    def test_ext_order_and_symbols_follow_qualcomm_makefiles(self):
+        """Inter-module links come from Qualcomm's own Makefile/Android.mk."""
+        ext_root = ROOT / "upstream/qualcomm/datarmnet-ext"
+        if not (ext_root / "perf/Makefile").is_file():
+            self.skipTest("datarmnet-ext checkout is not present")
+        order = re.search(r"for ext in ([a-z_ ]+); do", BUILD).group(1).split()
+        self.assertEqual(sorted(order), ["aps", "offload", "perf", "perf_tether", "sch", "shs", "wlan"])
+        declared = {}
+        for ext in order:
+            deps = set()
+            for name in ("Makefile", "Android.mk"):
+                path = ext_root / ext / name
+                if path.is_file():
+                    text = path.read_text()
+                    deps |= set(re.findall(r"\$\(DATARMNET_([A-Z]+)_PATH\)/Module\.symvers", text))
+                    deps |= set(re.findall(r"\$\(RMNET_([A-Z]+)_PATH\)/(?:gki/)?rmnet_", text))
+            deps.discard("CORE")
+            declared[ext] = {d.lower() for d in deps}
+        self.assertEqual(declared["perf"], {"shs"})
+        for ext, deps in declared.items():
+            for dep in deps:
+                self.assertLess(order.index(dep), order.index(ext), f"{dep} must be built before {ext}")
+                self.assertIn(f'if [[ "$ext" == {ext} ]]; then', BUILD)
+                self.assertIn(f'symbols+=" $rmnet_ext/{dep}/Module.symvers"', BUILD)
+
+    def test_string_checks_cannot_fail_on_sigpipe(self):
+        # `strings big.ko | grep -q` exits 141 under `set -o pipefail`.
+        code = "\n".join(line for line in BUILD.splitlines() if not line.lstrip().startswith("#"))
+        self.assertIsNone(re.search(r"\|\s*grep\s+-\w*q", code))
+        self.assertEqual(BUILD.count("module_has_string \""), 4)
+
     def test_module_list_matches_lock(self):
         built = set(re.findall(r'/([a-z0-9_-]+\.ko)"\n', BUILD))
         locked = {ko for name, sel in LOCK["selection"].items() if sel.get("selected")
