@@ -1,12 +1,47 @@
 name: Mondrian Qualcomm module BSP contracts (source only)
 on:
   push:
-    branches: [seventeen, 'audit/**']
+    branches: [seventeen, 'audit/**', 'bringup/**']
   pull_request:
+permissions:
+  contents: read
 jobs:
   contracts:
-    runs-on: ubuntu-latest
+    # Same-repository branches already receive the push check; forks need PR CI.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Check isolated source and KMI selection gates
-        run: python3 -m unittest discover -s tests -v
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Verify Xiaomi WLAN source and existing ABI contracts
+        run: |
+          set -euo pipefail
+          python3 tools/mondrian_source_pins.py check
+          python3 -m unittest discover -s tests -v
+          python3 tools/verify_xiaomi_camera_submodule.py
+          python3 tools/verify_mondrian_audio_video_sources.py
+          bash -n tools/build_mondrian_audio_video.sh
+          sh -n tools/collect_mondrian_camera_runtime.sh
+          python3 -m py_compile tools/check_mondrian_camera_runtime.py
+          python3 tools/verify_oem_wlan.py
+          python3 tools/apply_oem_wlan_fix.py
+          python3 tools/verify_qcom_mmrm.py
+          python3 tools/verify_qualcomm_data_eva_sources.py
+          for project in dataipa:dataipa datarmnet:datarmnet datarmnet-ext:datarmnet-ext eva-kernel:eva; do
+            python3 tools/apply_qualcomm_patch_series.py --check \
+              --project "${project%%:*}" --source "upstream/qualcomm/${project#*:}"
+          done
+          bash -n tools/build_mondrian_data_eva.sh
+          bash -n tools/install_ci_prerequisites.sh
+          bash -n tools/prepare_mondrian_lto_resources.sh
+          bash -n tools/prepare_mondrian_lto_linker.sh
+          bash tools/install_ci_prerequisites.sh --print-sources > /tmp/mondrian-apt-sources.list
+          grep -Fq 'https://archive.ubuntu.com/ubuntu' /tmp/mondrian-apt-sources.list
+          grep -Fq 'https://security.ubuntu.com/ubuntu' /tmp/mondrian-apt-sources.list
+          if grep -Fq 'azure.archive.ubuntu.com' /tmp/mondrian-apt-sources.list; then
+            echo '::error::Azure apt mirror must not be used'
+            exit 1
+          fi
+

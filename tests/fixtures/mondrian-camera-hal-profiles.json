@@ -1,0 +1,139 @@
+{
+  "device": "mondrian",
+  "sources": {
+    "miui": {
+      "build": "V14.0.5.0.TMNMIXM",
+      "repository": "Klozz/poco_mondrian_dump",
+      "commit": "72d902d1eab5d87055a40f84a90eaecf74a9b8ae"
+    },
+    "hyper": {
+      "build": "V816.0.8.0.UMNMIXM",
+      "repository": "gm-stuffs/poco_mondrian_dump",
+      "commit": "08d057dfd16a6b2c8520100290d4b1807b03ce86"
+    }
+  },
+  "file_pattern": "vendor/lib64/camera/com.qti.sensormodule.{profile}.bin",
+  "profile_digest": "git-blob-sha1",
+  "slots": [
+    {
+      "camera_id": 0,
+      "role": "wide",
+      "sensor": "OV64B40",
+      "sensor_address_8bit": "0x20",
+      "id_register": "0x300a",
+      "expected_sensor_id": "0x5664",
+      "id_mask": "0xffffffff",
+      "eeprom": "GT24P128E",
+      "eeprom_address_8bit": "0xa2",
+      "eeprom_power": {
+        "rail": "WL2866D_AVDD1",
+        "sequence_type": 15,
+        "enable_delay_ms": 3,
+        "disable_delay_ms": 0
+      },
+      "actuator": "DW9800V",
+      "ois": "AK7323",
+      "ois_control": {
+        "standalone_subdevice_in_stock_dt": false,
+        "power_records_per_profile": 2,
+        "zero_filled_power_records_per_profile": 2,
+        "register_data_records_per_profile": 13,
+        "nonzero_register_data_records_per_profile": 0,
+        "transport": "unverified"
+      },
+      "profiles": {
+        "mondrian_sunny_ov64b40_wide_i": {
+          "miui": "718d453d03a8a52490d9a088fe2ae2783400e836",
+          "hyper": "161834d078078a6427bb657125ef5474acf2d8ee"
+        },
+        "mondrian_aac_ov64b40_wide_ii": {
+          "miui": "130d25bb704357957bc817d3ac9ca0be40846308",
+          "hyper": "73b14f5ce3474209bd290eb2e193c01f754b5bad"
+        }
+      }
+    },
+    {
+      "camera_id": 1,
+      "role": "front",
+      "sensor": "OV16A1Q",
+      "sensor_address_8bit": "0x20",
+      "id_register": "0x300b",
+      "expected_sensor_id": "0x1641",
+      "id_mask": "0xffffffff",
+      "eeprom": "GT24P64E",
+      "eeprom_address_8bit": "0xa2",
+      "eeprom_power": {
+        "rail": "WL2866D_AVDD1",
+        "sequence_type": 15,
+        "enable_delay_ms": 3,
+        "disable_delay_ms": 0
+      },
+      "actuator": null,
+      "ois": null,
+      "profiles": {
+        "mondrian_ofilm_ov16a1q_front_i": {
+          "miui": "1ec386d4ac39653b8abda8bfe45e9eb175a551c7",
+          "hyper": "a1d29bf60687b7d69eb3e7aa2e09dc7dd8f72b06"
+        },
+        "mondrian_aac_ov16a1q_front_ii": {
+          "miui": "12d3b1cab9371ef72244369b62a55b8de71f1b6b",
+          "hyper": "c6541f37a407b0e451e1381c7e27cdbd951d7be5"
+        }
+      }
+    },
+    {
+      "camera_id": 2,
+      "role": "ultra",
+      "sensor": "OV08D10",
+      "sensor_address_8bit": "0x6c",
+      "id_register": "0x0",
+      "expected_sensor_id": "0x5647",
+      "id_mask": "0xffffffff",
+      "eeprom": "P24C64F",
+      "eeprom_address_8bit": "0xa0",
+      "eeprom_power": {
+        "rail": "WL2866D_AVDD1",
+        "sequence_type": 15,
+        "enable_delay_ms": 3,
+        "disable_delay_ms": 0
+      },
+      "actuator": null,
+      "ois": null,
+      "profiles": {
+        "mondrian_ofilm_ov08d10_ultra_i": {
+          "miui": "ee9c474ae59156b94ed3cac2b031242c073b5158",
+          "hyper": "ee9c474ae59156b94ed3cac2b031242c073b5158"
+        },
+        "mondrian_sunny_ov08d10_ultra_ii": {
+          "miui": "68709e5340b2e5a8f11882530d1e8701d43a87cd",
+          "hyper": "68709e5340b2e5a8f11882530d1e8701d43a87cd"
+        }
+      }
+    },
+    {
+      "camera_id": 3,
+      "role": "macro",
+      "sensor": "OV02B10",
+      "sensor_address_8bit": "0x78",
+      "id_register": "0x2",
+      "expected_sensor_id": "0x2b",
+      "id_mask": "0xffff",
+      "eeprom": "GT24P64E",
+      "eeprom_address_8bit": "0xa4",
+      "eeprom_power": {
+        "rail": "VIO",
+        "sequence_type": 3,
+        "enable_delay_ms": 3,
+        "disable_delay_ms": 0
+      },
+      "actuator": null,
+      "ois": null,
+      "profiles": {
+        "mondrian_sunny_ov02b10_macro_i": {
+          "miui": "975a390374aa22473a027ccbe6ee81193b0b360c",
+          "hyper": "975a390374aa22473a027ccbe6ee81193b0b360c"
+        }
+      }
+    }
+  ]
+}

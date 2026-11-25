@@ -1,0 +1,75 @@
+"""Source-lock regression tests for the real Xiaomi Camera BSP Gitlink."""
+import importlib.util
+import json
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT / "tools"))
+from mondrian_source_pins import load_pins
+spec = importlib.util.spec_from_file_location(
+    "camera_gitlink", ROOT / "tools/verify_xiaomi_camera_submodule.py")
+camera = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(camera)
+
+
+class XiaomiCameraGitlinkTests(unittest.TestCase):
+    def test_exact_real_repo_submodule(self):
+        camera.validate_gitmodules((ROOT / ".gitmodules").read_text())
+        self.assertEqual(camera.SUBMODULE, "xiaomi-camera-source")
+        self.assertEqual(len(camera.COMMIT), 40)
+
+    def test_correct_oem_source_provenance(self):
+        manifest = json.loads((ROOT / camera.MANIFEST).read_text())
+        camera.verify_pinned_metadata(manifest)
+        self.assertFalse(manifest["policy"]["lineage_code_imported"])
+        self.assertFalse(manifest["policy"]["fm_radio_selected"])
+
+    def test_source_audit_uses_current_kernel_without_rewriting_oem_history(self):
+        manifest = json.loads((ROOT / camera.MANIFEST).read_text())
+        policy = json.loads((ROOT / "mondrian-camera-flash-policy.json").read_text())
+        workflow = (ROOT / ".github/workflows/xiaomi-camera-source-audit.yml").read_text()
+        kernel = manifest["kernel"]
+        self.assertEqual(kernel["repository"],
+                         "PixelExperience-Reborn/android_kernel_xiaomi_sm8450")
+        self.assertEqual(kernel["commit"], policy["selected_kernel_commit"])
+        self.assertEqual(kernel["version"], "5.10.81")
+        # This audit is explicitly source-only, not a driver readiness claim.
+        self.assertEqual(manifest["status"], "SOURCE_ONLY_CANDIDATE_NOT_BUILT")
+        self.assertFalse(manifest["qualification"]["production_integration_approved"])
+        self.assertEqual(kernel["commit"], load_pins()["kernel"])
+        self.assertIn('"commit":load_pins()["kernel"]', workflow)
+        # Historical OEM Camera Gitlink must not change to satisfy an ABI pin.
+        self.assertEqual(manifest["manufacturer_candidate"]["commit"], camera.COMMIT)
+
+    def test_non_oem_url_rejected(self):
+        text = (ROOT / ".gitmodules").read_text()
+        modified = text.replace(camera.URL, "https://example.com/donor.git")
+        with self.assertRaisesRegex(ValueError, "non-Xiaomi"):
+            camera.validate_gitmodules(modified)
+
+    def test_camera_gitlink_ignores_branch_names_and_wrong_sha(self):
+        expected = "160000 commit " + camera.COMMIT + "\t" + camera.SUBMODULE
+        camera.verify_gitlink_row(expected)
+        for row in (
+            expected.replace(camera.COMMIT, "0" * 40),
+            expected.replace("160000", "100644"),
+            expected.replace("\t" + camera.SUBMODULE, "\tother/device"),
+            "160000 commit yudi-t-oss\t" + camera.SUBMODULE,
+        ):
+            with self.subTest(row=row):
+                with self.assertRaises(ValueError):
+                    camera.verify_gitlink_row(row)
+
+    def test_missing_or_drifted_camera_candidate_rejected(self):
+        data = json.loads((ROOT / camera.MANIFEST).read_text())
+        for value in ("0" * 40, "HEAD"):
+            candidate = json.loads(json.dumps(data))
+            candidate["manufacturer_candidate"]["commit"] = value
+            with self.assertRaisesRegex(ValueError, "drifts"):
+                camera.verify_pinned_metadata(candidate)
+
+
+if __name__ == "__main__":
+    unittest.main()

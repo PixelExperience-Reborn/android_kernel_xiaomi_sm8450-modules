@@ -4,6 +4,9 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT / "tools"))
+from mondrian_source_pins import load_pins
 
 
 class ModuleContractTests(unittest.TestCase):
@@ -17,7 +20,13 @@ class ModuleContractTests(unittest.TestCase):
         self.assertEqual(d["device"], "mondrian")
         self.assertEqual(d["soc"], "SM8475")
         self.assertEqual(d["android_base"], "AOSP 17")
-        self.assertEqual(d["build_status"], "not_buildable")
+        self.assertEqual(d["build_status"], "current_kernel_full_lto_and_external_bsp_abi_pending")
+        self.assertEqual(
+            d["selected_oem_source_candidates"]["selected_kernel"]["commit_sha"],
+            load_pins()["kernel"])
+        self.assertFalse(d["selected_oem_source_candidates"]["abi_verified"])
+        self.assertFalse(d["selected_oem_source_candidates"]["external_ko_compiled"])
+        self.assertEqual(d["last_verified_build"]["run_id"], 43088150435)
         s = d["reference_module_source"]
         self.assertEqual(s["status"], "read_only_not_selected")
         self.assertNotEqual(s["commit_sha"], s["tree_sha"])

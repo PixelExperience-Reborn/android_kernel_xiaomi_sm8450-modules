@@ -1,0 +1,35 @@
+name: Discover exact Qualcomm Waipio source candidates
+
+on:
+  push:
+    branches: [bringup/a17-mondrian-oem-bsp-20261111]
+    paths:
+      - .github/workflows/qualcomm-release-survey.yml
+      - tools/qualcomm_release_survey.py
+      - tools/qualcomm_mondrian_data_survey.py
+      - qualcomm-mondrian-waipio-11900-candidates.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Resolve upstream Qualcomm CodeLinaro tag SHA values
+        run: python3 tools/qualcomm_release_survey.py
+      - name: Read official CodeLinaro mondrian IPA RMNET and EVA source candidates
+        run: python3 tools/qualcomm_mondrian_data_survey.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qualcomm-candidate-tag-sha
+          path: |
+            qualcomm-release-survey.json
+            mondrian-code-linaro-data-survey.json
+          retention-days: 7

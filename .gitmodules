@@ -1,0 +1,27 @@
+[submodule "upstream/xiaomi-wlan"]
+	path = upstream/xiaomi-wlan
+	url = https://github.com/MiCode/vendor_qcom_opensource_wlan.git
+[submodule "upstream/qualcomm/mmrm"]
+	path = upstream/qualcomm/mmrm
+	url = https://git.codelinaro.org/clo/la/platform/vendor/opensource/mmrm-driver.git
+[submodule "xiaomi-camera-source"]
+	path = xiaomi-camera-source
+	url = https://github.com/MiCode/vendor_qcom_opensource_camera-kernel.git
+[submodule "upstream/xiaomi-audio"]
+	path = upstream/xiaomi-audio
+	url = https://github.com/MiCode/vendor_qcom_opensource_audio-kernel.git
+[submodule "upstream/qualcomm/video"]
+	path = upstream/qualcomm/video
+	url = https://git.codelinaro.org/clo/la/platform/vendor/opensource/video-driver.git
+[submodule "upstream/qualcomm/dataipa"]
+	path = upstream/qualcomm/dataipa
+	url = https://git.codelinaro.org/clo/la/platform/vendor/opensource/dataipa.git
+[submodule "upstream/qualcomm/datarmnet"]
+	path = upstream/qualcomm/datarmnet
+	url = https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/datarmnet.git
+[submodule "upstream/qualcomm/datarmnet-ext"]
+	path = upstream/qualcomm/datarmnet-ext
+	url = https://git.codelinaro.org/clo/la/platform/vendor/qcom/opensource/datarmnet-ext.git
+[submodule "upstream/qualcomm/eva"]
+	path = upstream/qualcomm/eva
+	url = https://git.codelinaro.org/clo/la/platform/vendor/opensource/eva-kernel.git

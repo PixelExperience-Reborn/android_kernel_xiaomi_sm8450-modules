@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "device": "mondrian",
+  "soc": "SM8475",
+  "android_base": "AOSP 17",
+  "kernel_base": "Xiaomi OEM Linux 5.10.81",
+  "manifest": {
+    "url": "https://git.codelinaro.org/clo/la/la/vendor/manifest.git",
+    "tag": "LA.VENDOR.1.0.r1-11900-WAIPIO.0",
+    "commit": "4ada7dbba74eacc651b1a0852ec90d7801c8199c",
+    "file": "LA.VENDOR.1.0.r1-11900-WAIPIO.0.xml"
+  },
+  "evidence": {
+    "workflow_run": 45432312156,
+    "job": 138580674024,
+    "survey_commit": "bbacea3398a2950a34bf7ac22efa4dbdd3c6bd0e"
+  },
+  "projects": {
+    "dataipa": {
+      "path": "platform/vendor/opensource/dataipa",
+      "commit": "17561e53321d461e4d73e1a861e97c2af925823a"
+    },
+    "datarmnet": {
+      "path": "platform/vendor/qcom/opensource/datarmnet",
+      "commit": "cc9cb6220a426df0506fcd9759d46b4033d0d6c9"
+    },
+    "datarmnet-ext": {
+      "path": "platform/vendor/qcom/opensource/datarmnet-ext",
+      "commit": "5aa3b6c45d19245fbae654e015532a61f32c1beb"
+    },
+    "eva-kernel": {
+      "path": "platform/vendor/opensource/eva-kernel",
+      "commit": "8613d42b73d64780a62eb4cc5cfdda1e22551c1a"
+    },
+    "cvp-kernel": {
+      "path": "platform/vendor/opensource/cvp-kernel",
+      "commit": "7bc10ddcdf26cfd898ee3d141b251a67fcdba202"
+    }
+  },
+  "qualification": {
+    "official_manifest_and_source_commits_verified": true,
+    "exact_xiaomi_oem_release_match_verified": true,
+    "source_imported": true,
+    "selected_for_build": true,
+    "kmi_verified": false,
+    "hardware_verified": false,
+    "xiaomi_release_match_evidence": "Xiaomi mondrian-s-oss kernel is Linux 5.10.81 and its Qualcomm driver directories match KERNEL.PLATFORM.1.0.r1-07800 msm-5.10 f8b2ec6 (no Qualcomm-only files; Xiaomi additions only)."
+  },
+  "release_set": {
+    "note": "LA.VENDOR 11900 references four AU sub-images; the public CodeLinaro tags below were published the same day (2022-03-14) and are the matching release.",
+    "kernel_platform": {
+      "tag": "KERNEL.PLATFORM.1.0.r1-07800-kernel.0",
+      "msm_5_10_commit": "f8b2ec6d6424a232602b0c43766d76b82e06dadb",
+      "linux_version": "5.10.81"
+    },
+    "display": {
+      "tag": "DISPLAY.LA.2.0.r1-05500-WAIPIO.0",
+      "display_drivers_commit": "dcaec350bd6897d4c11c9fb3351ee751c8549598"
+    },
+    "video": {
+      "tag": "VIDEO.LA.2.0.r1-03100-WAIPIO.0",
+      "video_driver_commit": "8608fb23bcb1cbffdc96b33eea3a79cb0228b72f",
+      "mmrm_driver_commit": "69e304b713271a6ee70ecdae9c97d9a7c9f0926f"
+    },
+    "camera": {
+      "tag": "CAMERA.LA.2.0.r1-04400-WAIPIO.0",
+      "camera_kernel_commit": "2180be9a14647c2356bfae5f7080fbb7d544753c"
+    }
+  },
+  "selection": {
+    "dataipa": {
+      "selected": true,
+      "gitlink": "upstream/qualcomm/dataipa",
+      "modules": [
+        "gsim.ko",
+        "ipam.ko",
+        "ipanetm.ko",
+        "rndisipam.ko",
+        "ipa_clientsm.ko"
+      ]
+    },
+    "datarmnet": {
+      "selected": true,
+      "gitlink": "upstream/qualcomm/datarmnet",
+      "modules": [
+        "rmnet_core.ko",
+        "rmnet_ctl.ko"
+      ]
+    },
+    "datarmnet-ext": {
+      "selected": true,
+      "gitlink": "upstream/qualcomm/datarmnet-ext",
+      "modules": [
+        "rmnet_offload.ko",
+        "rmnet_perf.ko",
+        "rmnet_perf_tether.ko",
+        "rmnet_shs.ko",
+        "rmnet_wlan.ko",
+        "rmnet_aps.ko",
+        "rmnet_sch.ko"
+      ]
+    },
+    "eva-kernel": {
+      "selected": true,
+      "gitlink": "upstream/qualcomm/eva",
+      "modules": [
+        "msm-eva.ko"
+      ],
+      "reason": "Only eva-kernel matches the mondrian DT node compatible qcom,waipio-cvp (plus qcom,msm-cvp bus/context-bank/mem-cdsp)."
+    },
+    "cvp-kernel": {
+      "selected": false,
+      "reason": "Superseded by eva-kernel for WAIPIO/CAPE; not built, avoids a second qcom,msm-cvp driver."
+    }
+  }
+}

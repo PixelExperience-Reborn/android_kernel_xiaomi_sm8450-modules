@@ -1,0 +1,180 @@
+diff --git a/drivers/cam_sensor_module/cam_csiphy/cam_csiphy_soc.c b/drivers/cam_sensor_module/cam_csiphy/cam_csiphy_soc.c
+--- a/drivers/cam_sensor_module/cam_csiphy/cam_csiphy_soc.c
++++ b/drivers/cam_sensor_module/cam_csiphy/cam_csiphy_soc.c
+@@ -15,7 +15,9 @@
+ #include "include/cam_csiphy_2_0_hwreg.h"
+ #include "include/cam_csiphy_2_1_0_hwreg.h"
+ #include "include/cam_csiphy_2_1_1_hwreg.h"
+-#include "include/cam_csiphy_2_1_3_hwreg.h"
++#include "include/cam_csiphy_2_1_3_hwreg.h"
++#include <linux/vmalloc.h>
++#include <linux/device.h>
+ 
+ /* Clock divide factor for CPHY spec v1.0 */
+ #define CSIPHY_DIVISOR_16                    16
+@@ -26,7 +28,133 @@
+ #define CSIPHY_LOG_BUFFER_SIZE_IN_BYTES      250
+ #define ONE_LOG_LINE_MAX_SIZE                20
+ 
+-static int cam_csiphy_io_dump(void __iomem *base_addr, uint16_t num_regs, int csiphy_idx)
++/* PE-Reborn mondrian M11A: isolated tuning of genuine Xiaomi v2.1.3
++ * register tables. The original tables remain unchanged for all other PHYs.
++ * Only the M11A compatible explicitly opts into these differences.
++ */
++struct mondrian_m11a_csiphy_data {
++	struct csiphy_reg_t two_phase[MAX_LANES][MAX_SETTINGS_PER_LANE];
++	struct data_rate_settings_t cphy_rates;
++};
++
++static void mondrian_m11a_csiphy_free(void *data)
++{
++	kvfree(data);
++}
++
++static int mondrian_m11a_replace(struct csiphy_reg_t *regs, size_t n,
++	int32_t address, int32_t original, int32_t updated)
++{
++	size_t i;
++	unsigned int found = 0;
++
++	for (i = 0; i < n; i++) {
++		if (regs[i].reg_addr != address)
++			continue;
++		if (regs[i].reg_data != original ||
++		    regs[i].csiphy_param_type != CSIPHY_DEFAULT_PARAMS)
++			return -EINVAL;
++		regs[i].reg_data = updated;
++		found++;
++	}
++
++	return found == 1 ? 0 : -EINVAL;
++}
++
++static int mondrian_m11a_csiphy_tune(struct csiphy_device *csiphy_dev)
++{
++	static const int32_t dphy_offsets[] = {
++		0x000, 0xE00, 0x400, 0x800, 0xC00,
++	};
++	struct mondrian_m11a_csiphy_data *tuning;
++	struct data_rate_reg_info_t *rate;
++	struct cam_hw_soc_info *soc_info = &csiphy_dev->soc_info;
++	int i, lane, bands = 0, rc;
++
++	if (ARRAY_SIZE(dphy_offsets) != MAX_LANES ||
++	    data_rate_delta_table_2_1_3.num_data_rate_settings != 26)
++		return -EINVAL;
++
++	tuning = kvzalloc(sizeof(*tuning), GFP_KERNEL);
++	if (!tuning)
++		return -ENOMEM;
++
++	memcpy(tuning->two_phase, csiphy_2ph_v2_1_3_reg,
++		sizeof(tuning->two_phase));
++	memcpy(&tuning->cphy_rates, &data_rate_delta_table_2_1_3,
++		sizeof(tuning->cphy_rates));
++
++	/* OEM mondrian reference differs at two registers per D-PHY lane. */
++	for (lane = 0; lane < MAX_LANES; lane++) {
++		struct csiphy_reg_t *regs = tuning->two_phase[lane];
++		const int32_t off = dphy_offsets[lane];
++		const size_t n = csiphy_v2_1_3.csiphy_2ph_config_array_size;
++
++		rc = mondrian_m11a_replace(regs, n, off + 0x14, 0x60, 0x20);
++		if (rc)
++			goto fail;
++		rc = mondrian_m11a_replace(regs, n, off + 0x10, 0x52, 0x72);
++		if (rc)
++			goto fail;
++	}
++
++	/* Two high-rate C-PHY bands differ from OEM generic tuning.
++	 * Mutate only this per-device copy, never global shared arrays.
++	 */
++	for (i = 0; i < tuning->cphy_rates.num_data_rate_settings; i++) {
++		rate = &tuning->cphy_rates.data_rate_settings[i];
++		if (rate->bandwidth != 3420000000ULL &&
++		    rate->bandwidth != 3876000000ULL)
++			continue;
++		if (rate->data_rate_reg_array_size != 9)
++			goto fail;
++		bands++;
++
++		for (lane = 0; lane < CAM_CSIPHY_MAX_CPHY_LANES; lane++) {
++			struct csiphy_reg_t *regs =
++				rate->per_lane_info[lane].csiphy_data_rate_regs;
++			const size_t n = rate->data_rate_reg_array_size;
++			const int32_t off = lane * 0x400;
++
++			rc = mondrian_m11a_replace(regs, n,
++				off + 0x270, 0x00, 0x03);
++			if (rc)
++				goto fail;
++			rc = mondrian_m11a_replace(regs, n,
++				off + 0x28C, 0x30, 0xF8);
++			if (rc)
++				goto fail;
++			rc = mondrian_m11a_replace(regs, n,
++				off + 0x26C, 0x3D, 0x07);
++			if (rc)
++				goto fail;
++			if (rate->bandwidth == 3420000000ULL && lane > 0) {
++				rc = mondrian_m11a_replace(regs, n,
++					off + 0x274, 0x07, 0x03);
++				if (rc)
++					goto fail;
++			}
++		}
++	}
++
++	if (bands != 2)
++		goto fail;
++	rc = devm_add_action_or_reset(soc_info->dev,
++		mondrian_m11a_csiphy_free, tuning);
++	if (rc)
++		return rc;
++
++	csiphy_dev->ctrl_reg->csiphy_2ph_reg = tuning->two_phase;
++	csiphy_dev->ctrl_reg->data_rates_settings_table = &tuning->cphy_rates;
++	return 0;
++
++fail:
++	kvfree(tuning);
++	CAM_ERR(CAM_CSIPHY, "M11A PHY register baseline mismatch");
++	return -EINVAL;
++}
++
++static int cam_csiphy_io_dump(void __iomem *base_addr, uint16_t num_regs, int csiphy_idx)
+ {
+ 	char                                    *buffer;
+ 	uint8_t                                  buffer_offset = 0;
+@@ -580,9 +708,27 @@
+ 		csiphy_dev->hw_version = CSIPHY_VERSION_V213;
+ 		csiphy_dev->is_divisor_32_comp = true;
+ 		csiphy_dev->clk_lane = 0;
+-		csiphy_dev->ctrl_reg->data_rates_settings_table = &data_rate_delta_table_2_1_3_xiaomi_l18;
+-		csiphy_dev->ctrl_reg->csiphy_bist_reg = &bist_setting_2_1_3;
+-	} else {
++		csiphy_dev->ctrl_reg->data_rates_settings_table = &data_rate_delta_table_2_1_3_xiaomi_l18;
++		csiphy_dev->ctrl_reg->csiphy_bist_reg = &bist_setting_2_1_3;
++	} else if (of_device_is_compatible(soc_info->dev->of_node,
++		"qcom,csiphy-v2.1.3-xiaomi-m11a")) {
++		csiphy_dev->ctrl_reg->csiphy_2ph_combo_mode_reg = csiphy_2ph_v2_1_3_combo_mode_reg;
++		csiphy_dev->ctrl_reg->csiphy_3ph_reg = csiphy_3ph_v2_1_3_reg;
++		csiphy_dev->ctrl_reg->csiphy_2ph_3ph_mode_reg = NULL;
++		csiphy_dev->ctrl_reg->csiphy_irq_reg = csiphy_irq_reg_2_1_3;
++		csiphy_dev->ctrl_reg->csiphy_common_reg = csiphy_common_reg_2_1_3;
++		csiphy_dev->ctrl_reg->csiphy_reset_enter_regs = csiphy_reset_enter_reg_2_1_3;
++		csiphy_dev->ctrl_reg->csiphy_reset_exit_regs = csiphy_reset_exit_reg_2_1_3;
++		csiphy_dev->ctrl_reg->csiphy_reg = csiphy_v2_1_3;
++		csiphy_dev->ctrl_reg->getclockvoting = get_clk_voting_dynamic;
++		csiphy_dev->hw_version = CSIPHY_VERSION_V213;
++		csiphy_dev->is_divisor_32_comp = true;
++		csiphy_dev->clk_lane = 0;
++		csiphy_dev->ctrl_reg->csiphy_bist_reg = &bist_setting_2_1_3;
++		rc = mondrian_m11a_csiphy_tune(csiphy_dev);
++		if (rc)
++			return rc;
++	} else {
+ 		CAM_ERR(CAM_CSIPHY, "invalid hw version : 0x%x",
+ 			csiphy_dev->hw_version);
+ 		rc =  -EINVAL;

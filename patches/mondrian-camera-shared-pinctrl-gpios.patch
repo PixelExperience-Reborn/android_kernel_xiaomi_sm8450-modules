@@ -1,0 +1,79 @@
+diff --git a/drivers/cam_sensor_module/cam_res_mgr/cam_res_mgr.c b/drivers/cam_sensor_module/cam_res_mgr/cam_res_mgr.c
+--- a/drivers/cam_sensor_module/cam_res_mgr/cam_res_mgr.c
++++ b/drivers/cam_sensor_module/cam_res_mgr/cam_res_mgr.c
+@@ -9,6 +9,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/slab.h>
+ #include <linux/gpio.h>
++#include <linux/of_gpio.h>
+ #include "cam_debug_util.h"
+ #include "cam_res_mgr_api.h"
+ #include "cam_res_mgr_private.h"
+@@ -752,9 +753,9 @@
+ 		cam_res->pctrl_res[i].suspend =
+ 			pinctrl_lookup_state(cam_res->pinctrl,
+ 			pctrl_suspend);
+-		if (IS_ERR_OR_NULL(cam_res->pctrl_res[i].active)) {
++		if (IS_ERR_OR_NULL(cam_res->pctrl_res[i].suspend)) {
+ 			CAM_ERR(CAM_RES,
+-				"Failed to get the active state pinctrl handle");
++				"Failed to get the suspend state pinctrl handle");
+ 			return -EINVAL;
+ 		}
+ 		cam_res->pctrl_res[i].pstatus = PINCTRL_STATUS_GOT;
+@@ -805,12 +806,19 @@
+ {
+ 	int rc = 0, i = 0;
+ 	int pinctrl_name_nodes = 0;
+-	struct device_node *of_node = NULL;
++	struct device_node *of_node = dev->of_node;
++	bool named_gpios = of_find_property(of_node, "qcom,shared-pinctrl-gpios", NULL);
+ 	struct cam_res_mgr_dt *dt = &cam_res->dt;
+ 
+-	of_node = dev->of_node;
+-	dt->num_shared_pctrl_gpio = of_property_count_u32_elems(of_node,
+-		"gpios-shared-pinctrl");
++	if (named_gpios) {
++		rc = of_gpio_named_count(of_node, "qcom,shared-pinctrl-gpios");
++		if (rc <= 0)
++			return -EINVAL;
++		dt->num_shared_pctrl_gpio = rc;
++	} else {
++		dt->num_shared_pctrl_gpio = of_property_count_u32_elems(of_node,
++			"gpios-shared-pinctrl");
++	}
+ 
+ 	if (dt->num_shared_pctrl_gpio <= 0) {
+ 		CAM_DBG(CAM_RES,
+@@ -839,11 +847,18 @@
+ 	CAM_INFO(CAM_RES,
+ 		"number of pctrl_gpio: %d", dt->num_shared_pctrl_gpio);
+ 
+-	rc = of_property_read_u32_array(of_node, "gpios-shared-pinctrl",
+-		dt->shared_pctrl_gpio, dt->num_shared_pctrl_gpio);
+-	if (rc) {
+-		CAM_ERR(CAM_RES, "Get shared pinctrl gpio array failed.");
+-		return -EINVAL;
++	if (named_gpios) {
++		for (i = 0; i < dt->num_shared_pctrl_gpio; i++) {
++			rc = of_get_named_gpio(of_node, "qcom,shared-pinctrl-gpios", i);
++			if (rc < 0)
++				return rc == -ENODEV ? -EINVAL : rc;
++			dt->shared_pctrl_gpio[i] = rc;
++		}
++	} else {
++		rc = of_property_read_u32_array(of_node, "gpios-shared-pinctrl",
++			dt->shared_pctrl_gpio, dt->num_shared_pctrl_gpio);
++		if (rc)
++			return rc;
+ 	}
+ 
+ 	for (i = 0; i < pinctrl_name_nodes; i++) {
+@@ -920,6 +935,7 @@
+ 		CAM_ERR(CAM_RES,
+ 			"Error in parsing device tree, rc: %d", rc);
+ 		kfree(cam_res);
++		cam_res = NULL;
+ 		return rc;
+ 	}
+ 

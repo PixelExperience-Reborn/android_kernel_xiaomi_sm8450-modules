@@ -1,0 +1,59 @@
+--- a/drivers/cam_sensor_module/cam_sensor_utils/cam_sensor_util.c
++++ b/drivers/cam_sensor_module/cam_sensor_utils/cam_sensor_util.c
+@@ -2236,6 +2236,19 @@
+ 		CAM_DBG(CAM_SENSOR, "type %d",
+ 			power_setting->seq_type);
+ 		switch (power_setting->seq_type) {
++#ifdef CONFIG_WL2866D
++		case SENSOR_WL2866D_DVDD1:
++		case SENSOR_WL2866D_DVDD2:
++		case SENSOR_WL2866D_AVDD1:
++		case SENSOR_WL2866D_AVDD2:
++			/* Release only votes acquired by completed power-up steps. */
++			ret = wl2866d_camera_power_down(power_setting->seq_type, 0);
++			if (ret < 0)
++				CAM_ERR(CAM_SENSOR,
++					"WL2866D rollback failed for rail %u: %d",
++					power_setting->seq_type, ret);
++			break;
++#endif
+ 		case SENSOR_MCLK:
+ 			for (i = soc_info->num_clk - 1; i >= 0; i--) {
+ 				cam_soc_util_clk_disable(soc_info, false, i);
+@@ -2542,6 +2555,7 @@
+ 		struct cam_hw_soc_info *soc_info)
+ {
+ 	int index = 0, ret = 0, num_vreg = 0, i;
++	int wl2866d_rc = 0;
+ 	struct cam_sensor_power_setting *pd = NULL;
+ 	struct cam_sensor_power_setting *ps = NULL;
+ 	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
+@@ -2676,16 +2690,12 @@
+ 		case SENSOR_WL2866D_DVDD2:
+ 		case SENSOR_WL2866D_AVDD1:
+ 		case SENSOR_WL2866D_AVDD2:
+-			//wl2866 out port num :
+-			//OUT_DVDD1 = 0
+-			//OUT_DVDD2 = 1
+-			//OUT_AVDD1 = 2
+-			//OUT_AVDD2 = 3
+-			//but we pre set SENSOR_WL2866D_DVDD1 = 13.
+-			ret = wl2866d_camera_power_down(((int)pd->seq_type),((int)pd->delay));
++			ret = wl2866d_camera_power_down(pd->seq_type, pd->delay);
+ 			if (ret < 0) {
+-				CAM_ERR(CAM_SENSOR,"wl2866d_camera_power_down iotype [%d] failed", pd->seq_type);
+-				break;
++				if (!wl2866d_rc)
++					wl2866d_rc = ret;
++				CAM_ERR(CAM_SENSOR, "WL2866D power-down failed for rail %u: %d",
++					pd->seq_type, ret);
+ 			}
+ 			break;
+ #endif
+@@ -2715,5 +2725,5 @@
+ 	cam_sensor_util_request_gpio_table(soc_info, 0);
+ 	ctrl->cam_pinctrl_status = 0;
+ 
+-	return 0;
++	return wl2866d_rc;
+ }

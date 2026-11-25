@@ -1,0 +1,71 @@
+diff --git a/msm/Kbuild b/msm/Kbuild
+--- a/msm/Kbuild
++++ b/msm/Kbuild
+@@ -42,8 +42,8 @@
+ 	LINUX_INC +=	-include $(DISPLAY_ROOT)/config/gki_anorakdispconf.h
+ endif
+ 
+-LINUX_INC +=	-Iinclude/linux \
+-		-Iinclude/linux/drm
++LINUX_INC +=	-I$(KERNEL_SRC)/include/linux \
++		-I$(KERNEL_SRC)/include/linux/drm
+ 
+ LINUX_INC +=	-I$(DISPLAY_ROOT) \
+ 	-I$(DISPLAY_ROOT)/include \
+diff --git a/msm/dsi/dsi_panel.c b/msm/dsi/dsi_panel.c
+--- a/msm/dsi/dsi_panel.c
++++ b/msm/dsi/dsi_panel.c
+@@ -10,7 +10,9 @@
+ #include <linux/of_gpio.h>
+ #include <linux/pwm.h>
+ #include <video/mipi_display.h>
+-#include <misc/isl97900_led.h>
++#if IS_REACHABLE(CONFIG_ISL97900_LED)
++#include <misc/isl97900_led.h>
++#endif
+ 
+ #include "dsi_panel.h"
+ #include "dsi_ctrl_hw.h"
+@@ -819,15 +821,19 @@
+ 	case DSI_BACKLIGHT_PWM:
+ 		rc = dsi_panel_update_pwm_backlight(panel, bl_lvl);
+ 		break;
+-	case DSI_BACKLIGHT_I2C:
+-		if (panel->rgb_left_led_node)
+-			isl97900_led_event(panel->rgb_left_led_node,
+-					0, bl_lvl);
+-
+-		if (panel->rgb_right_led_node)
+-			isl97900_led_event(panel->rgb_right_led_node,
+-					0, bl_lvl);
+-		break;
++	case DSI_BACKLIGHT_I2C:
++#if IS_REACHABLE(CONFIG_ISL97900_LED)
++		if (panel->rgb_left_led_node)
++			isl97900_led_event(panel->rgb_left_led_node,
++					0, bl_lvl);
++
++		if (panel->rgb_right_led_node)
++			isl97900_led_event(panel->rgb_right_led_node,
++					0, bl_lvl);
++#else
++		return -EOPNOTSUPP;
++#endif
++		break;
+ 	default:
+ 		DSI_ERR("Backlight type(%d) not supported\n", bl->type);
+ 		rc = -ENOTSUPP;
+@@ -960,8 +966,11 @@
+ 	case DSI_BACKLIGHT_PWM:
+ 		rc = dsi_panel_pwm_register(panel);
+ 		break;
+-	case DSI_BACKLIGHT_I2C:
+-		break;
++	case DSI_BACKLIGHT_I2C:
++#if !IS_REACHABLE(CONFIG_ISL97900_LED)
++		return -EOPNOTSUPP;
++#endif
++		break;
+ 	default:
+ 		DSI_ERR("Backlight type(%d) not supported\n", bl->type);
+ 		rc = -ENOTSUPP;
