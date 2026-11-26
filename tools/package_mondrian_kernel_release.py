@@ -11,7 +11,9 @@ vendor_dlkm and their load lists):
 * vendor_ramdisk/: the modules stock has in its vendor_boot ramdisk, plus
   every module they depend on; modules.load and modules.load.recovery are
   the stock lists, in stock order, limited to the modules we ship;
-* vendor_dlkm/: every other module; modules.load is the stock list of
+* vendor_dlkm/: the modules stock has in vendor_dlkm or its load list,
+  every module not in the ramdisk, and their dependencies (a module can
+  be in both, as stock); modules.load is the stock list of
   vendor_dlkm (which also names the modules Xiaomi keeps in /vendor, such
   as the WLAN driver), limited to the modules we ship.
 
@@ -129,9 +131,13 @@ def package(image, module_roots, dt_dir, out, provenance, strip=None):
             raise ValueError(f"{name}: depends on modules that were not built: {missing}")
         deps[name] = [by_module_name[d.replace("-", "_")] for d in wanted]
 
+    # As stock, a module can be in both: the ramdisk serves first stage and
+    # recovery, vendor_dlkm the second stage of a normal boot. Each side
+    # carries the dependencies of its modules.
     stock_ramdisk = set(read_list("vendor_ramdisk.modules"))
+    stock_dlkm = set(read_list("vendor_dlkm.modules")) | set(read_list("vendor_dlkm.modules.load"))
     ramdisk = closure([n for n in modules if n in stock_ramdisk], deps)
-    dlkm = set(modules) - ramdisk
+    dlkm = closure([n for n in modules if n in stock_dlkm or n not in ramdisk], deps)
 
     if out.exists():
         shutil.rmtree(out)
@@ -140,10 +146,13 @@ def package(image, module_roots, dt_dir, out, provenance, strip=None):
     (out / "dtbs").mkdir()
     shutil.copyfile(image, out / "Image")
     for name in modules:
-        dest = out / ("vendor_ramdisk" if name in ramdisk else "vendor_dlkm") / name
-        shutil.copyfile(modules[name], dest)
-        if strip:
-            subprocess.run([strip, "--strip-debug", str(dest)], check=True)
+        for directory, members in (("vendor_ramdisk", ramdisk), ("vendor_dlkm", dlkm)):
+            if name not in members:
+                continue
+            dest = out / directory / name
+            shutil.copyfile(modules[name], dest)
+            if strip:
+                subprocess.run([strip, "--strip-debug", str(dest)], check=True)
     loads = {
         "vendor_ramdisk/modules.load": [n for n in read_list("vendor_ramdisk.modules.load") if n in ramdisk],
         "vendor_ramdisk/modules.load.recovery":

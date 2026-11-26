@@ -74,7 +74,9 @@ class PackageReleaseTests(unittest.TestCase):
         out = self.tmp / "out"
         self.assertEqual(sorted(p.name for p in (out / "vendor_ramdisk").glob("*.ko")),
                          ["a.ko", "b.ko", "helper.ko"])
-        self.assertEqual(sorted(p.name for p in (out / "vendor_dlkm").glob("*.ko")), ["c.ko", "wlan.ko"])
+        # c (vendor_dlkm) depends on b (ramdisk): b is shipped on both sides.
+        self.assertEqual(sorted(p.name for p in (out / "vendor_dlkm").glob("*.ko")),
+                         ["b.ko", "c.ko", "wlan.ko"])
         self.assertEqual((out / "vendor_ramdisk/modules.load").read_text(), "a.ko\nb.ko\n")
         self.assertEqual((out / "vendor_ramdisk/modules.load.recovery").read_text(), "b.ko\na.ko\n")
         self.assertEqual((out / "vendor_dlkm/modules.load").read_text(), "c.ko\nwlan.ko\n")
