@@ -126,7 +126,7 @@
     "hardware_qualified": false,
     "selected_devicetrees": {
       "repository": "PixelExperience-Reborn/android_kernel_xiaomi_sm8450-devicetrees",
-      "commit_sha": "c6f47f9b8f9b7129d98b30e36beae8445fd2faa5"
+      "commit_sha": "547c333c5193570dc9731035f004e8c711be0c09"
     }
   },
   "qualcomm_official_candidates": {

@@ -7,7 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/oem-coherent-wlan-compile.yml").read_text()
-DT_COMMIT = "c6f47f9b8f9b7129d98b30e36beae8445fd2faa5"
+DT_COMMIT = "547c333c5193570dc9731035f004e8c711be0c09"
 
 
 class CoherentDeviceTreeStage(unittest.TestCase):

@@ -20,6 +20,7 @@ on:
         options:
           - display
           - full-bsp
+          - release
 
 concurrency:
   group: mondrian-coherent-external-wlan-build-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
@@ -587,7 +588,7 @@ jobs:
           kernel_sha = __import__("os").environ["PE_KERNEL_SHA"]
           bases = {"cape", "cape-v2", "capep"}
           assert multimedia["kernel_commit"] == kernel_sha and set(multimedia["boards"]) == bases
-          assert multimedia["mmrm_dt_selected"] is False and multimedia["production_dtbo_approved"] is False
+          assert multimedia["mmrm_dt_selected"] is True and multimedia["production_dtbo_approved"] is False
           for variant in bases:
               assert multimedia["boards"][variant]["input_sha256"] == display["boards"][variant]["sha256"]
           assert coverage["failures"] == []
@@ -654,7 +655,7 @@ jobs:
               "qualcomm_audio_video_dt_applied_on_all_three_bases": True,
               "full_multimedia_dtb_sha256": {name: info["output_sha256"]
                                              for name, info in multimedia["boards"].items()},
-              "mmrm_dt_selected": False,
+              "mmrm_dt_selected": True,
               "dt_enabled_device_driver_coverage_verified": True,
               "dt_driver_coverage_summary": {name: info["summary"]
                                              for name, info in coverage["boards"].items()},
@@ -708,6 +709,50 @@ jobs:
             > "$RUNNER_TEMP/mondrian-stage/diagnostic-sha256.txt"
           echo "[PASS] Pinned-source Image/Display/WLAN/MMRM/Camera/cameralog and exact dependency closure staged" >> "$GITHUB_STEP_SUMMARY"
           echo "[PENDING] M11A panel revision on hardware, production boot.img/dtbo.img and device boot" >> "$GITHUB_STEP_SUMMARY"
+      - name: Package the mondrian kernel release (Image, DTBs, dtbo.img, modules in stock order)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.scope == 'release' }}
+        run: |
+          set -euo pipefail
+          export PATH=/tmp/google-clang/clang-r614150/bin:$PATH
+          stage="$RUNNER_TEMP/mondrian-release-modules"
+          rm -rf "$stage" "$RUNNER_TEMP/mondrian-dtbo" "$RUNNER_TEMP/mondrian-kernel-release"
+          make -C kernel O="$RUNNER_TEMP/mondrian-out" LLVM=1 LLVM_IAS=1 ARCH=arm64 \
+            INSTALL_MOD_PATH="$stage" modules_install
+          "$RUNNER_TEMP/pe-bsp-dt-venv/bin/python" device-tree/tools/build_mondrian_dtbo.py \
+            --board-build "$RUNNER_TEMP/mondrian-coherent-board" \
+            --camera-build "$RUNNER_TEMP/mondrian-coherent-camera-platform" \
+            --m11a-build "$RUNNER_TEMP/mondrian-coherent-m11a" \
+            --multimedia-build "$RUNNER_TEMP/mondrian-coherent-multimedia" \
+            --out "$RUNNER_TEMP/mondrian-dtbo"
+          python3 tools/package_mondrian_kernel_release.py \
+            --image "$RUNNER_TEMP/mondrian-out/arch/arm64/boot/Image" \
+            --modules "$stage/lib/modules" \
+            --modules kernel/techpack \
+            --modules upstream \
+            --modules xiaomi-camera-source \
+            --dt "$RUNNER_TEMP/mondrian-dtbo" \
+            --strip "$(command -v llvm-strip)" \
+            --kernel-commit "$PE_KERNEL_SHA" \
+            --modules-commit "$GITHUB_SHA" \
+            --devicetrees-commit "$PE_DT_SHA" \
+            --clang clang-r614150 \
+            --clang-prebuilt-commit c9ed23e2ba198658b630d4b10e09fa980cd43119 \
+            --ci-repository "$GITHUB_REPOSITORY" \
+            --ci-workflow "$GITHUB_WORKFLOW" \
+            --ci-run-id "$GITHUB_RUN_ID" \
+            --out "$RUNNER_TEMP/mondrian-kernel-release" | tee -a "$GITHUB_STEP_SUMMARY"
+          git clone -q --depth 1 https://github.com/PixelExperience-Reborn/android_device_xiaomi_mondrian-kernel \
+            "$RUNNER_TEMP/mondrian-kernel-verifier"
+          python3 "$RUNNER_TEMP/mondrian-kernel-verifier/tools/verify_prebuilt.py" \
+            --root "$RUNNER_TEMP/mondrian-kernel-release" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload the mondrian kernel release
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.scope == 'release' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mondrian-kernel-release
+          if-no-files-found: error
+          retention-days: 30
+          path: ${{ runner.temp }}/mondrian-kernel-release/
       - name: Save diagnostic ABI evidence
         if: always()
         uses: actions/upload-artifact@v4
