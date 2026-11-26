@@ -39,7 +39,7 @@ class PackageReleaseTests(unittest.TestCase):
         self.stock.mkdir()
         lists = {
             "vendor_ramdisk.modules": "a.ko\nb.ko\n",
-            "vendor_ramdisk.modules.load": "a.ko\nb.ko\nmissing_first.ko\n",
+            "vendor_ramdisk.modules.load": "a.ko\nb.ko\na.ko\nmissing_first.ko\n",
             "vendor_ramdisk.modules.load.recovery": "b.ko\na.ko\n",
             "vendor_dlkm.modules": "c.ko\n",
             "vendor_dlkm.modules.load": "c.ko\nwlan.ko\n",

@@ -151,6 +151,8 @@ def package(image, module_roots, dt_dir, out, provenance, strip=None):
         "vendor_dlkm/modules.load": [n for n in read_list("vendor_dlkm.modules.load") if n in dlkm],
     }
     for rel, names in loads.items():
+        # The stock lists name some modules twice; loading is first-come.
+        names[:] = list(dict.fromkeys(names))
         if not names:
             raise ValueError(f"{rel}: no stock module of this list was built")
         (out / rel).write_text("".join(n + "\n" for n in names))
