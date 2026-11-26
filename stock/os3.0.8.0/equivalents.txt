@@ -1,0 +1,4 @@
+# Stock module and the module we build from the same driver under another
+# name; ours takes the stock module's place in every list.
+qti_battery_charger_main_m81.ko qti_battery_charger.ko
+nb7vpq904m.ko ssusb-redriver-nb7vpq904m.ko

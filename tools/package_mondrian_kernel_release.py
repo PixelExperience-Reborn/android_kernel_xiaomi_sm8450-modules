@@ -131,11 +131,16 @@ def package(image, module_roots, dt_dir, out, provenance, strip=None):
             raise ValueError(f"{name}: depends on modules that were not built: {missing}")
         deps[name] = [by_module_name[d.replace("-", "_")] for d in wanted]
 
+    # Stock modules built here under another name take their stock place.
+    equivalents = dict(line.split() for line in read_list("equivalents.txt"))
+    def stock(name):
+        return [equivalents.get(n, n) if n not in modules else n for n in read_list(name)]
+
     # As stock, a module can be in both: the ramdisk serves first stage and
     # recovery, vendor_dlkm the second stage of a normal boot. Each side
     # carries the dependencies of its modules.
-    stock_ramdisk = set(read_list("vendor_ramdisk.modules"))
-    stock_dlkm = set(read_list("vendor_dlkm.modules")) | set(read_list("vendor_dlkm.modules.load"))
+    stock_ramdisk = set(stock("vendor_ramdisk.modules"))
+    stock_dlkm = set(stock("vendor_dlkm.modules")) | set(stock("vendor_dlkm.modules.load"))
     ramdisk = closure([n for n in modules if n in stock_ramdisk], deps)
     dlkm = closure([n for n in modules if n in stock_dlkm or n not in ramdisk], deps)
 
@@ -154,10 +159,10 @@ def package(image, module_roots, dt_dir, out, provenance, strip=None):
             if strip:
                 subprocess.run([strip, "--strip-debug", str(dest)], check=True)
     loads = {
-        "vendor_ramdisk/modules.load": [n for n in read_list("vendor_ramdisk.modules.load") if n in ramdisk],
+        "vendor_ramdisk/modules.load": [n for n in stock("vendor_ramdisk.modules.load") if n in ramdisk],
         "vendor_ramdisk/modules.load.recovery":
-            [n for n in read_list("vendor_ramdisk.modules.load.recovery") if n in ramdisk],
-        "vendor_dlkm/modules.load": [n for n in read_list("vendor_dlkm.modules.load") if n in dlkm],
+            [n for n in stock("vendor_ramdisk.modules.load.recovery") if n in ramdisk],
+        "vendor_dlkm/modules.load": [n for n in stock("vendor_dlkm.modules.load") if n in dlkm],
     }
     for rel, names in loads.items():
         # The stock lists name some modules twice; loading is first-come.
@@ -174,7 +179,7 @@ def package(image, module_roots, dt_dir, out, provenance, strip=None):
     stock_all = set()
     for name in ("vendor_ramdisk.modules", "vendor_ramdisk.modules.load",
                  "vendor_ramdisk.modules.load.recovery", "vendor_dlkm.modules", "vendor_dlkm.modules.load"):
-        stock_all |= set(read_list(name))
+        stock_all |= set(stock(name))
     files = {str(p.relative_to(out)): sha256(p) for p in sorted(out.rglob("*")) if p.is_file()}
     prov = dict(provenance)
     prov.update({
@@ -187,6 +192,7 @@ def package(image, module_roots, dt_dir, out, provenance, strip=None):
             "vendor_dlkm": len(dlkm),
             "stock_not_built": sorted(stock_all - set(modules)),
             "built_not_in_stock_lists": sorted(set(modules) - stock_all),
+            "stock_equivalents": {k: v for k, v in equivalents.items() if v in modules},
         },
         "files": files,
     })

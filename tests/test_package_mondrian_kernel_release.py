@@ -42,8 +42,9 @@ class PackageReleaseTests(unittest.TestCase):
             "vendor_ramdisk.modules.load": "a.ko\nb.ko\na.ko\nmissing_first.ko\n",
             "vendor_ramdisk.modules.load.recovery": "b.ko\na.ko\n",
             "vendor_dlkm.modules": "c.ko\n",
-            "vendor_dlkm.modules.load": "c.ko\nwlan.ko\n",
+            "vendor_dlkm.modules.load": "c.ko\nwlan_m81.ko\n",
             "modules.blocklist": "blocklist x\n",
+            "equivalents.txt": "# stock ours\nwlan_m81.ko wlan.ko\n",
         }
         for name, text in lists.items():
             (self.stock / name).write_text(text)
