@@ -16,12 +16,24 @@ REQUIRED = {
     "CONFIG_LTO_NONE": "n",
     "CONFIG_CFI_CLANG": "y",
     "CONFIG_SHADOW_CALL_STACK": "y",
+    # Zero-initialized kernel stack variables (gki_defconfig), which the
+    # 5.10.81 Kconfig dropped silently with clang 16+ before the upstream
+    # hardening fixes f02003c860d9 and 607e57c6c62c.
+    "CONFIG_INIT_STACK_ALL_ZERO": "y",
+    "CONFIG_INIT_STACK_NONE": "n",
+    # Options of the stock OS3.0.8.0 GKI kernel set by mondrian_GKI.config.
+    "CONFIG_ARM64_ERRATUM_2051678": "y",
+    "CONFIG_RANDOM_TRUST_CPU": "y",
+    "CONFIG_RANDOM_TRUST_BOOTLOADER": "y",
+    "CONFIG_SCSI_UFS_HPB": "y",
 }
 DIAG_KEYS = (
     "CONFIG_ARCH_SUPPORTS_LTO_CLANG", "CONFIG_CC_HAVE_SHADOW_CALL_STACK",
     "CONFIG_ARCH_SUPPORTS_SHADOW_CALL_STACK", "CONFIG_KALLSYMS",
     "CONFIG_HAS_LTO_CLANG", "CONFIG_HAVE_ARCH_KASAN_HW_TAGS",
     "CONFIG_AS_HAS_ARMV8_5", "CONFIG_ARM64_AS_HAS_MTE",
+    "CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO", "CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO_BARE",
+    "CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO_ENABLER", "CONFIG_ARCH_RANDOM", "CONFIG_SCSI_UFSHCD",
 )
 
 
@@ -76,7 +88,7 @@ def main():
             args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
     except (OSError, ValueError) as exc:
         cli.error("GKI security downgrade: " + str(exc))
-    print("[PASS] OEM kernel .config: HW MTE KASAN, Full LTO, CFI, SCS retained")
+    print("[PASS] OEM kernel .config: HW MTE KASAN, Full LTO, CFI, SCS, zero stack init, A510 erratum, CRNG trust, UFS HPB")
 
 
 if __name__ == "__main__":

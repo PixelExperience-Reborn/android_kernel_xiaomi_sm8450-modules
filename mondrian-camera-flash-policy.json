@@ -4,7 +4,7 @@
   "android_base": "AOSP 17",
   "device": "mondrian",
   "soc": "SM8475",
-  "selected_kernel_commit": "2efda4cf1afa2a7098d5abd4806769903e181f73",
+  "selected_kernel_commit": "641c9a89fbed85acc90a111db34b01c0d21ead7f",
   "manufacturer_camera": {
     "repository": "MiCode/vendor_qcom_opensource_camera-kernel",
     "commit": "9ed4ce96d49c0759c6365627113c5f59c2407942",

@@ -74,7 +74,7 @@ SCS or HW-tag KASAN just to report SUCCESS.
 
 ## Kernel SHA and ABI provenance
 
-The current active OEM kernel is `2efda4cf1afa2a7098d5abd4806769903e181f73` in both workflow checkouts,
+The current active OEM kernel is `641c9a89fbed85acc90a111db34b01c0d21ead7f` in both workflow checkouts,
 the WLAN dependency closure and the modules candidate manifest.
 The generic external-module ABI verifier requires an explicit expected
 kernel SHA rather than defaulting to obsolete `2466406b9beac724960b0c88e6e794421d0466e7`.

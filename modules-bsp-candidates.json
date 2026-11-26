@@ -117,7 +117,7 @@
     },
     "selected_kernel": {
       "repository": "PixelExperience-Reborn/android_kernel_xiaomi_sm8450",
-      "commit_sha": "2efda4cf1afa2a7098d5abd4806769903e181f73",
+      "commit_sha": "641c9a89fbed85acc90a111db34b01c0d21ead7f",
       "version": "5.10.81"
     },
     "abi_verified": false,
@@ -156,7 +156,7 @@
     }
   },
   "wlan_runtime_closure": {
-    "kernel_commit": "2efda4cf1afa2a7098d5abd4806769903e181f73",
+    "kernel_commit": "641c9a89fbed85acc90a111db34b01c0d21ead7f",
     "kernel_source": "PixelExperience-Reborn/android_kernel_xiaomi_sm8450",
     "external_module": "qca_cld3_qca6490.ko",
     "external_qualcomm_module": "msm-mmrm.ko",
