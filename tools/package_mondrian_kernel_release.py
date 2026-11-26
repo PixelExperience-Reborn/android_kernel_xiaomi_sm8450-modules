@@ -73,7 +73,7 @@ def modinfo(path):
 def kernel_release(image):
     """The release string of an arm64 Image (as printed by uname -r)."""
     data = Path(image).read_bytes()
-    match = re.search(rb"Linux version (\S+) ", data)
+    match = re.search(rb"Linux version (\d[^\s\x00]*) ", data)
     if not match:
         raise ValueError(f"{image}: no Linux version banner")
     return match.group(1).decode()
