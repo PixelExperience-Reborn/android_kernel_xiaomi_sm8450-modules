@@ -109,7 +109,14 @@ def verify_manufacturer_dts(dts):
                 "qcom/xiaomi-sm8475-common.dtsi") != OEM_COMMON_BLOB):
         raise ValueError("original Xiaomi PM8350C device-tree provenance drift")
     path = "qcom/xiaomi-sm8475-common.dtsi"
-    if git(dts, "hash-object", path) != OEM_COMMON_BLOB:
+    # Declared adaptations (oem_binding -> pe_binding) are reverted first,
+    # as the device-tree repository's own provenance test does.
+    raw = (dts / path).read_bytes()
+    for adaptation in lock.get("adaptations", []):
+        if adaptation["path"] == path:
+            raw = raw.replace(adaptation["pe_binding"].encode(), adaptation["oem_binding"].encode())
+    blob = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
+    if blob != OEM_COMMON_BLOB:
         raise ValueError("OEM PMIC common DTS bytes changed")
     contents = (dts / path).read_text()
     for required in (
